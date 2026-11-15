@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plano Emagrecer</title>
+<meta name="description" content="Ementa, registo diário com pontos, peso e lista de compras.">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Plano">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --text: #1c1c1e;
+  --muted: #6e6e73;
+  --faint: #c7c7cc;
+  --line: rgba(60,60,67,.14);
+  --green: #1f9d55;
+  --green-soft: rgba(31,157,85,.14);
+  --accent: #2f7d5b;
+  --red: #d93a32;
+  --red-soft: rgba(217,58,50,.12);
+  --amber: #b7791f;
+  --tab: rgba(249,249,249,.92);
+  --switch-off: #e3e3e8;
+  --shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --text: #f2f2f7;
+    --muted: #98989f;
+    --faint: #48484a;
+    --line: rgba(84,84,88,.6);
+    --green: #34c76f;
+    --green-soft: rgba(52,199,111,.18);
+    --accent: #4cc38a;
+    --red: #ff5f57;
+    --red-soft: rgba(255,95,87,.16);
+    --amber: #e0a43a;
+    --tab: rgba(22,22,24,.92);
+    --switch-off: #39393d;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #000000; --card: #1c1c1e; --text: #f2f2f7; --muted: #98989f; --faint: #48484a;
+  --line: rgba(84,84,88,.6); --green: #34c76f; --green-soft: rgba(52,199,111,.18); --accent: #4cc38a;
+  --red: #ff5f57; --red-soft: rgba(255,95,87,.16); --amber: #e0a43a; --tab: rgba(22,22,24,.92);
+  --switch-off: #39393d; --shadow: none;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  padding: env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom));
+  overscroll-behavior-y: none;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
+h1 { font-size: 34px; line-height: 1.1; letter-spacing: -.02em; margin: 14px 4px 14px; font-weight: 700; }
+.section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); margin: 22px 16px 7px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.foot { font-size: 13px; color: var(--muted); margin: 7px 16px 0; }
+.foot.warn { color: var(--red); }
+.card { background: var(--card); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.pad { padding: 14px 16px; }
+.row { display: flex; align-items: center; gap: 12px; padding: 11px 16px; min-height: 48px; position: relative; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 52px; right: 0; border-top: 0.5px solid var(--line); }
+.row.plain + .row.plain::before { left: 16px; }
+.row .grow { flex: 1; min-width: 0; }
+.row .ico { width: 26px; text-align: center; font-size: 19px; flex: none; }
+.tap { background: none; border: 0; width: 100%; text-align: left; }
+.tap:active { background: var(--line); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.label-sm { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .01em; }
+.strike { text-decoration: line-through; color: var(--muted); }
+.check { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--faint); flex: none; display: grid; place-items: center; transition: background .15s, border-color .15s; }
+.check.on { background: var(--green); border-color: var(--green); }
+.check.on::after { content: ""; width: 7px; height: 12px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: translateY(-1px) rotate(45deg); }
+
+/* switch */
+.switch { position: relative; width: 51px; height: 31px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.switch span { position: absolute; inset: 0; background: var(--switch-off); border-radius: 31px; transition: background .2s; }
+.switch span::after { content: ""; position: absolute; width: 27px; height: 27px; left: 2px; top: 2px; background: #fff; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: transform .2s; }
+.switch input:checked + span { background: var(--green); }
+.switch input:checked + span::after { transform: translateX(20px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* stepper */
+.stepper { display: flex; align-items: center; gap: 0; background: var(--switch-off); border-radius: 9px; flex: none; }
+.stepper button { width: 44px; height: 32px; border: 0; background: none; font-size: 22px; line-height: 1; }
+.stepper button:active { opacity: .5; }
+.stepper button + button { border-left: 1px solid var(--line); }
+.count { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 22px; text-align: right; }
+.count.bad { color: var(--red); }
+
+/* day switcher */
+.dayswitch { display: flex; align-items: center; justify-content: space-between; padding: 10px 6px; }
+.dayswitch button.arrow { width: 44px; height: 44px; border-radius: 22px; border: 0; background: none; color: var(--accent); font-size: 26px; }
+.dayswitch button.arrow:active { background: var(--line); }
+.dayswitch .mid { text-align: center; }
+.dayswitch .date { font-weight: 600; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 2px 7px; border-radius: 10px; background: var(--green); color: #fff; vertical-align: 2px; }
+.pill.ghost { background: var(--green-soft); color: var(--green); }
+.linkbtn { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 6px 4px; }
+
+.dots { display: inline-flex; gap: 4px; }
+.dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); display: block; opacity: .55; }
+.dots i.on { background: var(--green); opacity: 1; }
+
+/* week summary */
+.week { display: flex; gap: 16px; align-items: center; }
+.ring { width: 82px; height: 82px; flex: none; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .num { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; line-height: 1; }
+.ring .num b { font-size: 24px; font-variant-numeric: tabular-nums; display: block; }
+.ring .num small { font-size: 11px; color: var(--muted); }
+.week h3 { margin: 0 0 4px; font-size: 17px; }
+.week p { margin: 2px 0; font-size: 15px; color: var(--muted); }
+.week p.bad { color: var(--red); }
+
+input.num-in { width: 80px; border: 0; background: none; text-align: right; font-variant-numeric: tabular-nums; outline: none; padding: 4px 0; }
+input.num-in::placeholder { color: var(--faint); }
+textarea { width: 100%; border: 0; background: none; resize: none; outline: none; min-height: 24px; padding: 0; }
+textarea::placeholder, input::placeholder { color: var(--faint); }
+
+/* progress */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 4px; }
+.stats .v { font-size: 22px; font-variant-numeric: tabular-nums; }
+.stats .v.big { font-size: 30px; font-weight: 700; }
+.bar { height: 8px; border-radius: 4px; background: var(--switch-off); overflow: hidden; margin: 14px 0 8px; }
+.bar > div { height: 100%; background: var(--green); border-radius: 4px; transition: width .3s; }
+.between { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; }
+.info { display: flex; gap: 8px; font-size: 15px; margin-top: 8px; }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.empty { text-align: center; padding: 26px 16px; color: var(--muted); }
+.empty .big { font-size: 34px; margin-bottom: 6px; }
+
+/* menu */
+.daycard { margin-bottom: 14px; scroll-margin-top: 12px; }
+.daycard.today { outline: 2px solid var(--green); outline-offset: -2px; }
+
+/* shopping */
+.del { border: 0; background: none; color: var(--faint); font-size: 22px; width: 36px; height: 36px; border-radius: 18px; flex: none; }
+.del:active { background: var(--red-soft); color: var(--red); }
+.addform { display: flex; gap: 8px; padding: 10px 12px; align-items: center; }
+.addform input { flex: 1; min-width: 0; border: 0; background: var(--bg); border-radius: 9px; padding: 9px 11px; outline: none; }
+.addform input.q { flex: 0 0 34%; }
+.btn { border: 0; background: var(--green); color: #fff; font-weight: 600; border-radius: 10px; padding: 9px 14px; flex: none; }
+.btn:active { opacity: .7; }
+.btn.secondary { background: var(--green-soft); color: var(--green); }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; }
+.actions { display: block; }
+.actions .row { color: var(--accent); }
+.actions .row.danger { color: var(--red); }
+
+.rule-n { width: 24px; height: 24px; border-radius: 12px; background: var(--green-soft); color: var(--green); font-size: 13px; font-weight: 700; display: grid; place-items: center; flex: none; }
+.rowtop { align-items: flex-start; }
+
+/* tab bar */
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: var(--tab);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid var(--line);
+  display: flex; justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+nav.tabs .inner { display: flex; width: 100%; max-width: 640px; }
+nav.tabs button { flex: 1; border: 0; background: none; padding: 7px 0 6px; color: var(--muted); font-size: 10px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+nav.tabs button svg { width: 26px; height: 26px; }
+nav.tabs button[aria-current="page"] { color: var(--green); }
+
+.toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: rgba(40,40,42,.94); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 15px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 20; max-width: calc(100% - 32px); text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.install { background: var(--green-soft); border-radius: 12px; padding: 12px 14px; font-size: 15px; margin-top: 4px; }
+.install b { color: var(--green); }
+</style>
+</head>
+<body>
+<main id="view"></main>
+
+<nav class="tabs" aria-label="Separadores">
+  <div class="inner">
+    <button data-tab="hoje"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/></svg>Hoje</button>
+    <button data-tab="progresso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v16h18"/><path d="m6.5 8 4 4 3-3 5.5 6"/></svg>Progresso</button>
+    <button data-tab="ementa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10"/><path d="M17 21V3c-2 1.2-3 3.6-3 7v3h3"/></svg>Ementa</button>
+    <button data-tab="compras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2.5 3.5h3l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.2L21 7.5H6.4"/></svg>Compras</button>
+    <button data-tab="mais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>Plano</button>
+  </div>
+</nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="restoreFile" accept="application/json,.json" hidden>
+
+<script>
+"use strict";
+
+/* ---------- Conteúdo do plano ---------- */
+const MEALS = [
+  { n: "Pequeno-almoço", i: "🌅" },
+  { n: "Lanche da manhã", i: "🥛" },
+  { n: "Almoço", i: "🍽️" },
+  { n: "Lanche da tarde", i: "🍎" },
+  { n: "Jantar", i: "🌙" }
+];
+const DAYNAMES = ["Segunda", "Terça", "Quarta (bola)", "Quinta", "Sexta", "Sábado", "Domingo"];
+const MENU = [
+  ["Papas de aveia: 40 g aveia + 250 ml leite meio-gordo + 1 banana", "Skyr natural + 1 maçã", "Sopa de legumes + frango grelhado (170 g) com 1 chávena de arroz cozido e brócolos", "2 fatias de pão integral + queijo fresco", "Sopa + omelete de 3 ovos com espinafres + salada"],
+  ["3 ovos mexidos + 1 fatia de pão integral + 1 kiwi", "Iogurte grego natural + 1 pera", "Sopa + bacalhau com grão (150 g bacalhau, 4 c. sopa de grão), ovo cozido e salada", "1 fatia de pão integral + fiambre de peru + 1 peça de fruta", "Sopa + peito de peru grelhado (150 g) + legumes salteados"],
+  ["Papas de aveia: 40 g aveia + 250 ml leite + 1 banana", "Skyr natural + 1 maçã", "Sopa + esparguete à bolonhesa (150 g carne picada magra, 80 g massa crua) + salada", "Antes do jogo: 1 fatia de pão integral + manteiga de amendoim (1 c. chá) + 1 banana", "Sopa + atum ao natural com feijão-frade, cebola e ovo cozido. Se beberes cerveja, sem pão nem batata"],
+  ["3 ovos mexidos + 1 fatia de pão integral + 1 kiwi", "Iogurte grego natural + 1 pera", "Sopa + salmão no forno (150 g) com 2 batatas cozidas médias e legumes", "2 fatias de pão integral + queijo fresco", "Sopa + wrap integral com frango desfiado e legumes salteados"],
+  ["Papas de aveia: 40 g aveia + 250 ml leite + 1 banana", "Skyr natural + 1 maçã", "Sopa + lombo de porco grelhado (150 g) + 1 chávena de arroz + salada", "1 fatia de pão integral + fiambre de peru + 1 peça de fruta", "Sopa + pescada cozida com legumes e 1 batata"],
+  ["2 ovos + 2 fatias de pão integral + tomate", "1 peça de fruta + 1 punhado pequeno de frutos secos (30 g)", "Refeição livre com moderação: come a sopa primeiro, um prato só, sem repetir", "Iogurte grego natural + 1 peça de fruta", "Sopa + hambúrguer caseiro de vaca magra (150 g) em pão integral com salada"],
+  ["Panquecas de aveia: 1 banana + 2 ovos + 30 g aveia", "Skyr natural + 1 peça de fruta", "Sopa + frango assado sem pele + 2 batatas assadas médias + salada", "2 fatias de pão integral + queijo fresco", "Sopa + tosta mista em pão integral + salada. Preparar marmitas e sopa para a semana"]
+];
+const RULES = [
+  "Sopa sempre primeiro, ao almoço e ao jantar.",
+  "Sirvo o prato uma vez e não repito. A travessa não fica na mesa.",
+  "Cerveja só à quarta (depois da bola) e num dia do fim de semana, no máximo 2 de cada vez. Nos outros dias, cerveja sem álcool.",
+  "Um copo de água entre cada cerveja, e nada de batatas fritas ou amendoins a acompanhar.",
+  "Um doce planeado por semana, num dia que escolho. Em casa não há gulodices.",
+  "Quando me apetece um doce fora do plano, espero 10 minutos e como fruta, um iogurte ou 2 quadrados de chocolate negro.",
+  "Caminho 30 minutos por dia, todos os dias.",
+  "Peso-me só à segunda-feira de manhã, em jejum, e registo na app.",
+  "Se falhar uma refeição, a seguinte é normal: não compenso, não desisto.",
+  "Ao domingo preparo a sopa e as marmitas para a semana.",
+  "Preencho o registo todas as noites antes de dormir. A meta é pelo menos 22 pontos por semana."
+];
+const SHOP = [
+  ["Aveia em flocos", "500 g"], ["Leite meio-gordo", "2 L"], ["Bananas", "7"], ["Fruta variada (maçãs, peras, kiwis)", "14 peças"],
+  ["Skyr ou iogurte grego natural", "10"], ["Ovos", "2 dúzias"], ["Pão integral", "1 pão de forma grande"], ["Queijo fresco", "3"],
+  ["Fiambre de peru", "200 g"], ["Peito de frango", "500 g"], ["Frango para assar", "1 pequeno"], ["Peito de peru", "150 g"],
+  ["Bacalhau demolhado", "150 g"], ["Salmão", "1 posta"], ["Pescada", "1 posta"], ["Lombo de porco", "150 g"],
+  ["Carne picada de vaca magra", "300 g"], ["Atum ao natural", "3 latas"], ["Grão cozido", "1 frasco"], ["Feijão-frade cozido", "1 frasco"],
+  ["Arroz", "500 g"], ["Esparguete integral", "500 g"], ["Batatas", "2 kg"],
+  ["Legumes para sopa (abóbora, cenoura, courgette, alho-francês, cebola)", "para 2 panelas"], ["Brócolos", "1"],
+  ["Espinafres", "1 saco"], ["Alface ou salada pronta", "2 sacos"], ["Tomate", "6"], ["Wraps integrais", "1 pacote"],
+  ["Manteiga de amendoim 100%", "1 frasco pequeno"], ["Frutos secos (nozes ou amêndoas)", "200 g"],
+  ["Chocolate negro 70%", "1 tablete (para o doce planeado)"], ["Cerveja sem álcool", "6"], ["Azeite", "se faltar"]
+];
+
+/* ---------- Datas ---------- */
+const pad = n => String(n).padStart(2, "0");
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseKey = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); r.setHours(0, 0, 0, 0); return r; };
+const isoWd = d => (d.getDay() + 6) % 7 + 1; // 1 = segunda … 7 = domingo
+const weekStart = d => addDays(d, -(isoWd(d) - 1));
+const sameDay = (a, b) => keyOf(a) === keyOf(b);
+const fmtLong = d => { const s = d.toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" }); return s.charAt(0).toUpperCase() + s.slice(1); };
+const fmtShort = d => d.toLocaleDateString("pt-PT", { day: "numeric", month: "short" }).replace(".", "");
+const kg = v => Number(v).toLocaleString("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const parseNum = s => { const v = parseFloat(String(s).replace(",", ".").trim()); return isFinite(v) ? v : null; };
+
+/* ---------- Estado ---------- */
+const STORE_KEY = "plano-emagrecer-v1";
+const defaultShopping = () => SHOP.map(([name, qty], i) => ({ id: "s" + i, name, qty, bought: false }));
+const defaultState = () => ({
+  logs: {},
+  shopping: defaultShopping(),
+  settings: { initial: 93, goal: 85, weekGoal: 22, maxBeers: 4, start: keyOf(today()) }
+});
+let state = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      const d = defaultState();
+      return { logs: s.logs || {}, shopping: Array.isArray(s.shopping) ? s.shopping : d.shopping, settings: Object.assign(d.settings, s.settings || {}) };
+    }
+  } catch (e) { /* sem armazenamento */ }
+  return defaultState();
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { toast("Não foi possível guardar neste navegador"); }
+}
+if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(() => {}); }
+
+const blankLog = () => ({ menu: false, sweets: false, beers: 0, walk: false, weight: null, notes: "", meals: [false, false, false, false, false] });
+const getLog = k => Object.assign(blankLog(), state.logs[k] || {});
+function setLog(k, patch) {
+  const old = getLog(k);
+  const next = Object.assign(old, patch);
+  if (patch.meals && next.meals.every(Boolean)) next.menu = true;
+  state.logs[k] = next;
+  save();
+}
+const beerDay = d => { const w = isoWd(d); return w === 3 || w >= 6; };
+const beerOK = (log, d) => log.beers === 0 || (beerDay(d) && log.beers <= 2);
+const points = (log, d) => [log.menu, log.sweets, log.walk, beerOK(log, d)].filter(Boolean).length;
+const startDate = () => parseKey(state.settings.start);
+
+function weekPoints(date) {
+  const ws = weekStart(date), t = today(), st = startDate();
+  let p = 0, max = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(ws, i);
+    if (d > t || d < st) continue;
+    p += points(getLog(keyOf(d)), d); max += 4;
+  }
+  return { p, max };
+}
+function weekBeers(date) {
+  const ws = weekStart(date); let b = 0;
+  for (let i = 0; i < 7; i++) b += getLog(keyOf(addDays(ws, i))).beers || 0;
+  return b;
+}
+function weighIns() {
+  return Object.entries(state.logs)
+    .filter(([, l]) => typeof l.weight === "number")
+    .map(([k, l]) => ({ k, d: parseKey(k), w: l.weight }))
+    .sort((a, b) => a.d - b.d);
+}
+const currentWeight = () => { const w = weighIns(); return w.length ? w[w.length - 1].w : state.settings.initial; };
+function weeklyRate() {
+  const st = startDate();
+  let pts = weighIns().map(x => ({ d: x.d, w: x.w }));
+  if (!pts.length) return null;
+  if (pts[0].d > st) pts.unshift({ d: st, w: state.settings.initial });
+  const a = pts[0], b = pts[pts.length - 1];
+  const days = Math.round((b.d - a.d) / 864e5);
+  if (days < 7) return null;
+  return (a.w - b.w) / days * 7;
+}
+function perfectStreak() {
+  let d = today(), n = 0;
+  if (points(getLog(keyOf(d)), d) < 4) d = addDays(d, -1);
+  while (d >= startDate() && points(getLog(keyOf(d)), d) === 4) { n++; d = addDays(d, -1); }
+  return n;
+}
+
+/* ---------- UI ---------- */
+const view = document.getElementById("view");
+let tab = "hoje";
+let selected = today();
+try { tab = sessionStorage.getItem("tab") || "hoje"; } catch (e) {}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200);
+}
+const dots = n => `<span class="dots" aria-label="${n} de 4 pontos">${[0, 1, 2, 3].map(i => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>`;
+const check = on => `<span class="check ${on ? "on" : ""}" aria-hidden="true"></span>`;
+const sw = (field, on) => `<label class="switch"><input type="checkbox" data-field="${field}" ${on ? "checked" : ""}><span></span></label>`;
+
+function render() {
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === tab ? "page" : "false"));
+  ({ hoje: renderHoje, progresso: renderProgresso, ementa: renderEmenta, compras: renderCompras, mais: renderMais })[tab]();
+}
+
+/* --- Hoje --- */
+function weekCard(date) {
+  const s = state.settings, wk = weekPoints(date), beers = weekBeers(date);
+  const C = 2 * Math.PI * 34, frac = Math.min(1, wk.p / 28), gFrac = s.weekGoal / 28;
+  const ok = wk.p >= s.weekGoal;
+  const t = today(), inWeek = sameDay(weekStart(date), weekStart(t));
+  const todayLeft = inWeek && t >= startDate() ? 4 - points(getLog(keyOf(t)), t) : 0;
+  const left = 28 - wk.max + todayLeft, need = s.weekGoal - wk.p;
+  const pl = n => n === 1 ? "1 ponto" : `${n} pontos`;
+  const msg = ok ? `Meta de ${s.weekGoal} pontos atingida 💪` :
+    need > left ? `${need === 1 ? "Falta" : "Faltam"} ${pl(need)} para a meta de ${s.weekGoal}. Já não dá esta semana, mas cada ponto conta.` :
+    `${need === 1 ? "Falta" : "Faltam"} ${pl(need)} para a meta de ${s.weekGoal}.`;
+  return `<div class="card pad week">
+    <div class="ring">
+      <svg viewBox="0 0 80 80" aria-hidden="true">
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--switch-off)" stroke-width="9"/>
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--green)" stroke-width="9" stroke-linecap="round"
+          stroke-dasharray="${(C * frac).toFixed(1)} ${C.toFixed(1)}" opacity="${ok ? 1 : .8}"/>
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--text)" stroke-width="13" opacity=".55"
+          stroke-dasharray="1.6 ${C.toFixed(1)}" stroke-dashoffset="${(-C * gFrac + .8).toFixed(1)}"/>
+      </svg>
+      <div class="num"><div><b>${wk.p}</b><small>/ 28</small></div></div>
+    </div>
+    <div>
+      <h3>${sameDay(weekStart(date), weekStart(today())) ? "Esta semana" : "Semana de " + fmtShort(weekStart(date))}</h3>
+      <p>${msg}</p>
+      <p class="${beers > s.maxBeers ? "bad" : ""}">🍺 Cervejas: ${beers} de ${s.maxBeers}</p>
+    </div>
+  </div>`;
+}
+
+function renderHoje() {
+  const d = selected, k = keyOf(d), log = getLog(k), menu = MENU[isoWd(d) - 1];
+  const isToday = sameDay(d, today()), future = d > today();
+  const pts = points(log, d), bd = beerDay(d), bOK = beerOK(log, d);
+  view.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <h1>${isToday ? "Hoje" : "Registo"}</h1>
+      ${isToday ? "" : `<button class="linkbtn" data-act="today" style="margin-bottom:12px">Ir para hoje</button>`}
+    </div>
+    <div class="card dayswitch">
+      <button class="arrow" data-act="prev" aria-label="Dia anterior">‹</button>
+      <div class="mid">
+        <div class="date">${fmtLong(d)}</div>
+        <div class="small ${pts === 4 && !future ? "" : "muted"}" style="${pts === 4 && !future ? "color:var(--green)" : ""}">
+          ${future ? "Dia futuro" : `${pts} de 4 pontos &nbsp;${dots(pts)}`}
+        </div>
+      </div>
+      <button class="arrow" data-act="next" aria-label="Dia seguinte">›</button>
+    </div>
+
+    <div style="margin-top:14px">${weekCard(d)}</div>
+
+    <div class="section-title"><span>Ementa · ${DAYNAMES[isoWd(d) - 1]}</span></div>
+    <div class="card">
+      ${MEALS.map((m, i) => `
+        <button class="row tap rowtop" data-meal="${i}" aria-pressed="${log.meals[i]}">
+          ${check(log.meals[i])}
+          <div class="grow">
+            <div class="label-sm">${m.i} ${m.n}</div>
+            <div class="${log.meals[i] ? "strike" : ""}">${esc(menu[i])}</div>
+          </div>
+        </button>`).join("")}
+    </div>
+    <div class="foot">Marca as refeições ao longo do dia. Com as 5 marcadas, "Cumpri a ementa" fica feito.</div>
+
+    <div class="section-title"><span>Pontos do dia</span>${dots(pts)}</div>
+    <div class="card">
+      <div class="row"><span class="ico">🍽️</span><span class="grow">Cumpri a ementa</span>${sw("menu", log.menu)}</div>
+      <div class="row"><span class="ico">🍫</span><span class="grow">Doces só os planeados</span>${sw("sweets", log.sweets)}</div>
+      <div class="row"><span class="ico">🚶</span><span class="grow">Caminhei 30 min</span>${sw("walk", log.walk)}</div>
+      <div class="row"><span class="ico">🍺</span><span class="grow">Cervejas</span>
+        <span class="count ${bOK ? "" : "bad"}">${log.beers}</span>
+        <span class="stepper"><button data-act="beer-" aria-label="Menos uma cerveja">−</button><button data-act="beer+" aria-label="Mais uma cerveja">+</button></span>
+      </div>
+    </div>
+    <div class="foot ${bOK ? "" : "warn"}">${bd
+      ? "Hoje a cerveja é permitida: até 2. Um copo de água entre cada uma, sem petiscos."
+      : "Hoje não é dia de cerveja: qualquer cerveja tira o ponto. Prefere sem álcool."}</div>
+
+    <div class="section-title"><span>Peso e notas</span></div>
+    <div class="card">
+      <div class="row"><span class="ico">⚖️</span><span class="grow">Peso</span>
+        <input class="num-in" id="weight" inputmode="decimal" placeholder="—" value="${log.weight == null ? "" : kg(log.weight)}" aria-label="Peso em kg">
+        <span class="muted">kg</span>
+      </div>
+      <div class="row"><span class="ico">📝</span><textarea id="notes" rows="1" placeholder="Notas do dia" aria-label="Notas do dia">${esc(log.notes)}</textarea></div>
+    </div>
+    <div class="foot">${isoWd(d) === 1 ? "É segunda-feira: pesa-te de manhã, em jejum, e regista aqui." : "A regra é pesar só à segunda-feira de manhã."}</div>
+  `;
+  autoGrow(document.getElementById("notes"));
+}
+function autoGrow(t) { if (!t) return; t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }
+
+/* --- Progresso --- */
+function weightChart() {
+  const s = state.settings, st = startDate();
+  const pts = [{ d: st, w: s.initial }].concat(weighIns().filter(x => x.d > st));
+  if (pts.length < 2) return `<div class="empty"><div class="big">⚖️</div>Ainda sem pesagens.<br>O gráfico aparece depois da primeira.</div>`;
+  const W = 340, H = 200, L = 34, R = 10, T = 14, B = 24;
+  const all = pts.map(p => p.w).concat([s.goal]);
+  const lo = Math.floor(Math.min(...all) - 1), hi = Math.ceil(Math.max(...all) + 1);
+  const t0 = +pts[0].d, t1 = Math.max(+pts[pts.length - 1].d, t0 + 864e5);
+  const x = d => L + (W - L - R) * ((+d - t0) / (t1 - t0));
+  const y = w => T + (H - T - B) * (1 - (w - lo) / (hi - lo));
+  const path = pts.map((p, i) => `${i ? "L" : "M"}${x(p.d).toFixed(1)},${y(p.w).toFixed(1)}`).join(" ");
+  const ticks = []; const step = Math.max(1, Math.round((hi - lo) / 4));
+  for (let v = lo; v <= hi; v += step) ticks.push(v);
+  const last = pts[pts.length - 1];
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico da evolução do peso">
+    ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join("")}
+    <line x1="${L}" x2="${W - R}" y1="${y(s.goal)}" y2="${y(s.goal)}" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="${W - R}" y="${y(s.goal) - 5}" text-anchor="end" style="fill:var(--green)">meta ${kg(s.goal)}</text>
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${pts.map(p => `<circle cx="${x(p.d)}" cy="${y(p.w)}" r="3.5" fill="var(--card)" stroke="var(--accent)" stroke-width="2"/>`).join("")}
+    <text x="${x(last.d)}" y="${y(last.w) - 9}" text-anchor="${pts.length > 1 ? "end" : "middle"}" style="fill:var(--text);font-weight:600">${kg(last.w)}</text>
+    <text x="${L}" y="${H - 6}">${fmtShort(pts[0].d)}</text>
+    <text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtShort(last.d)}</text>
+  </svg>`;
+}
+function weeksChart() {
+  const g = state.settings.weekGoal, tw = weekStart(today()), firstW = weekStart(startDate());
+  const weeks = [];
+  for (let o = 7; o >= 0; o--) { const ws = addDays(tw, -7 * o); if (ws >= firstW) weeks.push({ ws, p: weekPoints(ws).p }); }
+  const W = 340, H = 180, L = 8, R = 8, T = 26, B = 22, n = weeks.length;
+  const bw = Math.min(30, (W - L - R) / n * .6), gap = (W - L - R) / n;
+  const y = v => T + (H - T - B) * (1 - v / 28);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Pontos por semana">
+    <line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--muted)" stroke-dasharray="5 4" stroke-width="1"/>
+    <text x="${W - R}" y="${y(g) - 4}" text-anchor="end">meta ${g}</text>
+    <line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/>
+    ${weeks.map((w, i) => { const cx = L + gap * i + gap / 2, top = y(w.p);
+      return `<rect x="${cx - bw / 2}" y="${top}" width="${bw}" height="${Math.max(0, y(0) - top)}" rx="4" fill="${w.p >= g ? "var(--green)" : "var(--accent)"}" opacity="${w.p >= g ? 1 : .45}"/>
+      <text x="${cx}" y="${top - 4}" text-anchor="middle" style="fill:var(--text)">${w.p}</text>
+      <text x="${cx}" y="${H - 6}" text-anchor="middle">${fmtShort(w.ws)}</text>`; }).join("")}
+  </svg>`;
+}
+function renderProgresso() {
+  const s = state.settings, cur = currentWeight(), lost = s.initial - cur, rem = Math.max(0, cur - s.goal);
+  const prog = s.initial > s.goal ? Math.max(0, Math.min(1, lost / (s.initial - s.goal))) : 0;
+  const rate = weeklyRate();
+  let rateHtml = `<div class="foot" style="margin:10px 0 0">Regista o peso às segundas-feiras. Ao fim de uma semana aparece o ritmo e a data prevista para chegar à meta.</div>`;
+  if (rate != null) {
+    rateHtml = `<div class="info"><span>⏱️</span><span>${rate > 0 ? `Ritmo: −${kg(rate)} kg por semana` : "Sem descida desde o início. Revê o registo da semana."}</span></div>`;
+    if (rate > 0.05 && rem > 0) {
+      const wi = weighIns(); const base = wi.length ? wi[wi.length - 1].d : today();
+      const eta = addDays(base, Math.ceil(rem / rate * 7));
+      rateHtml += `<div class="info" style="color:var(--green)"><span>🏁</span><span>A este ritmo chegas aos ${kg(s.goal)} kg por volta de <b>${eta.toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" })}</b></span></div>`;
+    }
+    if (rate > 1) rateHtml += `<div class="foot" style="margin:8px 0 0">Mais de 1 kg por semana é rápido. Um ritmo de 0,5 a 1 kg é mais fácil de manter.</div>`;
+  }
+  const days = Object.keys(state.logs).sort().reverse();
+  view.innerHTML = `
+    <h1>Progresso</h1>
+    <div class="card pad">
+      <div class="stats">
+        <div><div class="small muted">Inicial</div><div class="v">${kg(s.initial)}</div><div class="small muted">kg</div></div>
+        <div><div class="small muted">Atual</div><div class="v big">${kg(cur)}</div><div class="small muted">kg</div></div>
+        <div><div class="small muted">Meta</div><div class="v">${kg(s.goal)}</div><div class="small muted">kg</div></div>
+      </div>
+      <div class="bar" role="progressbar" aria-valuenow="${Math.round(prog * 100)}" aria-valuemin="0" aria-valuemax="100"><div style="width:${(prog * 100).toFixed(1)}%"></div></div>
+      <div class="between"><b>${lost >= 0 ? `Já perdi ${kg(lost)} kg` : `Ganhei ${kg(-lost)} kg`}</b><span class="muted">${rem > 0 ? `Faltam ${kg(rem)} kg` : "Meta atingida 🎉"}</span></div>
+      ${rateHtml}
+    </div>
+
+    <div class="section-title"><span>Evolução do peso</span></div>
+    <div class="card pad">${weightChart()}</div>
+
+    <div class="section-title"><span>Pontos por semana</span></div>
+    <div class="card pad">${weeksChart()}</div>
+
+    <div class="section-title"><span>Histórico</span><span>🔥 ${perfectStreak()} dias seguidos com 4/4</span></div>
+    <div class="card">
+      ${days.length ? days.map(k => { const d = parseKey(k), l = getLog(k);
+        return `<button class="row tap plain" data-goto="${k}">
+          <div class="grow"><div>${fmtLong(d)}</div>${l.notes ? `<div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.notes)}</div>` : ""}</div>
+          ${l.weight != null ? `<span class="small muted">${kg(l.weight)} kg</span>` : ""}
+          ${d > today() ? "" : dots(points(l, d))}
+          <span class="muted">›</span>
+        </button>`; }).join("") : `<div class="empty"><div class="big">📅</div>Os dias que registares aparecem aqui.</div>`}
+    </div>
+  `;
+}
+
+/* --- Ementa --- */
+function renderEmenta() {
+  const ti = isoWd(today()) - 1;
+  view.innerHTML = `<h1>Ementa</h1>` + MENU.map((day, di) => `
+    <div class="section-title" id="day-${di}"><span>${DAYNAMES[di]} ${di === ti ? '<span class="pill">HOJE</span>' : ""}</span></div>
+    <div class="card daycard ${di === ti ? "today" : ""}">
+      ${day.map((m, i) => `<div class="row rowtop"><span class="ico">${MEALS[i].i}</span><div class="grow"><div class="label-sm">${MEALS[i].n}</div><div>${esc(m)}</div></div></div>`).join("")}
+    </div>`).join("") + `
+    <div class="section-title"><span>Lembra-te</span></div>
+    <div class="card">
+      <div class="row"><span class="ico">🥣</span><span class="grow">Sopa sempre primeiro, ao almoço e ao jantar.</span></div>
+      <div class="row"><span class="ico">✋</span><span class="grow">Um prato só, sem repetir.</span></div>
+      <div class="row"><span class="ico">🍱</span><span class="grow">Domingo: preparar sopa e marmitas.</span></div>
+    </div>`;
+}
+
+/* --- Compras --- */
+function renderCompras() {
+  const list = state.shopping, toBuy = list.filter(x => !x.bought), got = list.filter(x => x.bought);
+  const item = x => `<div class="row">
+      <button class="tap grow" data-shop="${esc(x.id)}" style="display:flex;gap:12px;align-items:center;padding:0" aria-pressed="${x.bought}">
+        ${check(x.bought)}
+        <span class="grow"><span class="${x.bought ? "strike" : ""}">${esc(x.name)}</span>${x.qty ? `<br><span class="small muted">${esc(x.qty)}</span>` : ""}</span>
+      </button>
+      <button class="del" data-delshop="${esc(x.id)}" aria-label="Apagar ${esc(x.name)}">×</button>
+    </div>`;
+  view.innerHTML = `
+    <h1>Compras</h1>
+    <div class="card pad">
+      <div class="between"><span>${got.length} de ${list.length} comprados</span><button class="linkbtn" data-act="share" style="padding:0">Partilhar</button></div>
+      <div class="bar" style="margin-bottom:0"><div style="width:${list.length ? got.length / list.length * 100 : 0}%"></div></div>
+    </div>
+
+    <div class="section-title"><span>Adicionar</span></div>
+    <form class="card addform" id="addForm" autocomplete="off">
+      <input name="item" placeholder="Produto" aria-label="Produto" enterkeyhint="next">
+      <input name="qty" class="q" placeholder="Qtd." aria-label="Quantidade" enterkeyhint="done">
+      <button class="btn" type="submit" aria-label="Adicionar produto">+</button>
+    </form>
+
+    <div class="section-title"><span>Por comprar · ${toBuy.length}</span></div>
+    <div class="card">${toBuy.length ? toBuy.map(item).join("") : `<div class="empty"><div class="big">🎉</div>Está tudo comprado.</div>`}</div>
+
+    ${got.length ? `<div class="section-title"><span>Comprado · ${got.length}</span></div><div class="card">${got.map(item).join("")}</div>` : ""}
+
+    <div class="btnrow" style="margin-top:18px">
+      <button class="btn secondary" data-act="unbuyall">Desmarcar tudo (nova semana)</button>
+      <button class="btn secondary" data-act="resetshop" style="background:var(--red-soft);color:var(--red)">Repor lista original</button>
+    </div>
+  `;
+}
+
+/* --- Plano / definições --- */
+function isStandalone() { return window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches; }
+function renderMais() {
+  const s = state.settings;
+  view.innerHTML = `
+    <h1>Plano</h1>
+    ${isStandalone() ? "" : `<div class="install">📲 <b>Instala no iPhone:</b> no Safari, toca em <b>Partilhar</b> <span aria-hidden="true">⎋</span> e depois em <b>Adicionar ao ecrã principal</b>. Fica como uma app e funciona sem internet.</div>`}
+
+    <div class="section-title"><span>As minhas regras</span></div>
+    <div class="card">${RULES.map((r, i) => `<div class="row rowtop"><span class="rule-n">${i + 1}</span><span class="grow">${esc(r)}</span></div>`).join("")}</div>
+
+    <div class="section-title"><span>Como se ganham pontos (0–4 por dia)</span></div>
+    <div class="card">
+      <div class="row"><span class="ico">🍽️</span><span class="grow">Cumpri a ementa</span></div>
+      <div class="row"><span class="ico">🍫</span><span class="grow">Doces só os planeados</span></div>
+      <div class="row"><span class="ico">🚶</span><span class="grow">Caminhei 30 minutos</span></div>
+      <div class="row"><span class="ico">🍺</span><span class="grow">Cerveja dentro da regra: nenhuma, ou até 2 à quarta, sábado ou domingo</span></div>
+    </div>
+
+    <div class="section-title"><span>Objetivos</span></div>
+    <div class="card">
+      <div class="row plain"><span class="grow">Peso inicial</span><input class="num-in" data-set="initial" inputmode="decimal" value="${kg(s.initial)}"><span class="muted">kg</span></div>
+      <div class="row plain"><span class="grow">Meta</span><input class="num-in" data-set="goal" inputmode="decimal" value="${kg(s.goal)}"><span class="muted">kg</span></div>
+      <div class="row plain"><span class="grow">Meta semanal de pontos</span><input class="num-in" data-set="weekGoal" inputmode="numeric" value="${s.weekGoal}"><span class="muted">/ 28</span></div>
+      <div class="row plain"><span class="grow">Máx. cervejas por semana</span><input class="num-in" data-set="maxBeers" inputmode="numeric" value="${s.maxBeers}"></div>
+      <div class="row plain"><span class="grow">Início do plano</span><input type="date" data-set="start" value="${s.start}" style="border:0;background:none;text-align:right;color:var(--accent)"></div>
+    </div>
+
+    <div class="section-title"><span>Lembretes</span></div>
+    <div class="card actions">
+      <a class="row plain" href="lembretes.ics" style="text-decoration:none;color:var(--accent)">🔔&nbsp; Adicionar lembretes ao Calendário</a>
+    </div>
+    <div class="foot">Junta ao Calendário do iPhone, com alerta: registo todas as noites às 22h, caminhada às 18h, pesagem à segunda às 8h e preparação das marmitas ao domingo às 11h. Podes mudar as horas no Calendário.</div>
+
+    <div class="section-title"><span>Dados</span></div>
+    <div class="card actions">
+      <button class="row plain tap" data-act="backup">💾&nbsp; Fazer cópia de segurança</button>
+      <button class="row plain tap" data-act="restore">📂&nbsp; Restaurar cópia de segurança</button>
+      <button class="row plain tap" data-act="csv">📊&nbsp; Exportar registo (CSV, para Excel)</button>
+      <button class="row plain tap danger" data-act="wipe">🗑️&nbsp; Apagar todos os dados</button>
+    </div>
+    <div class="foot">Os dados ficam só neste iPhone. Faz uma cópia de segurança de vez em quando e guarda-a nos Ficheiros ou no iCloud Drive.</div>
+    <div class="foot" style="text-align:center;margin:24px 0 8px">Plano Emagrecer · v1</div>
+  `;
+}
+
+/* ---------- Ficheiros ---------- */
+async function shareFile(name, text, type) {
+  const file = new File([text], name, { type });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+function csv() {
+  const rows = [["Data", "Cumpri a ementa", "Doces só os planeados", "Cervejas", "Caminhei 30 min", "Pontos", "Peso (kg)", "Notas"]];
+  Object.keys(state.logs).sort().forEach(k => {
+    const l = getLog(k), d = parseKey(k);
+    rows.push([k, l.menu ? "Sim" : "Não", l.sweets ? "Sim" : "Não", l.beers, l.walk ? "Sim" : "Não", points(l, d), l.weight == null ? "" : kg(l.weight), (l.notes || "").replace(/[;\n\r]/g, " ")]);
+  });
+  return "﻿" + rows.map(r => r.join(";")).join("\n");
+}
+
+/* ---------- Eventos ---------- */
+document.querySelector("nav.tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tab]"); if (!b) return;
+  if (tab === b.dataset.tab && tab === "hoje") selected = today();
+  tab = b.dataset.tab;
+  try { sessionStorage.setItem("tab", tab); } catch (err) {}
+  render(); window.scrollTo(0, 0);
+  if (tab === "ementa") { const el = document.getElementById("day-" + (isoWd(today()) - 1)); if (el) el.scrollIntoView({ block: "start" }); }
+});
+
+view.addEventListener("click", async e => {
+  const t = e.target;
+  const meal = t.closest("[data-meal]");
+  if (meal) { const k = keyOf(selected), l = getLog(k), i = +meal.dataset.meal; l.meals[i] = !l.meals[i]; setLog(k, { meals: l.meals }); render(); return; }
+  const shop = t.closest("[data-shop]");
+  if (shop) { const it = state.shopping.find(x => x.id === shop.dataset.shop); if (it) { it.bought = !it.bought; save(); render(); } return; }
+  const del = t.closest("[data-delshop]");
+  if (del) { const it = state.shopping.find(x => x.id === del.dataset.delshop); if (it && confirm(`Apagar "${it.name}" da lista?`)) { state.shopping = state.shopping.filter(x => x !== it); save(); render(); } return; }
+  const go = t.closest("[data-goto]");
+  if (go) { selected = parseKey(go.dataset.goto); tab = "hoje"; render(); window.scrollTo(0, 0); return; }
+  const act = t.closest("[data-act]"); if (!act) return;
+  const k = keyOf(selected);
+  switch (act.dataset.act) {
+    case "prev": selected = addDays(selected, -1); render(); break;
+    case "next": selected = addDays(selected, 1); render(); break;
+    case "today": selected = today(); render(); break;
+    case "beer+": setLog(k, { beers: Math.min(12, getLog(k).beers + 1) }); render(); break;
+    case "beer-": setLog(k, { beers: Math.max(0, getLog(k).beers - 1) }); render(); break;
+    case "share": {
+      const text = "Lista de compras\n" + state.shopping.filter(x => !x.bought).map(x => `• ${x.name}${x.qty ? " — " + x.qty : ""}`).join("\n");
+      try {
+        if (navigator.share) await navigator.share({ text });
+        else { await navigator.clipboard.writeText(text); toast("Lista copiada"); }
+      } catch (err) { if (err.name !== "AbortError") toast("Não foi possível partilhar"); }
+      break;
+    }
+    case "unbuyall": state.shopping.forEach(x => x.bought = false); save(); render(); toast("Lista pronta para a nova semana"); break;
+    case "resetshop": if (confirm("Repor a lista original? Os produtos que adicionaste são apagados.")) { state.shopping = defaultShopping(); save(); render(); } break;
+    case "backup": await shareFile(`plano-copia-${keyOf(today())}.json`, JSON.stringify(state, null, 1), "application/json"); break;
+    case "restore": document.getElementById("restoreFile").click(); break;
+    case "csv": await shareFile(`registo-${keyOf(today())}.csv`, csv(), "text/csv"); break;
+    case "wipe": if (confirm("Apagar o registo, o peso e a lista de compras? Não dá para desfazer.")) { state = defaultState(); save(); selected = today(); render(); toast("Dados apagados"); } break;
+  }
+});
+
+view.addEventListener("change", e => {
+  const t = e.target;
+  if (t.matches("[data-field]")) { setLog(keyOf(selected), { [t.dataset.field]: t.checked }); render(); return; }
+  if (t.id === "weight") {
+    const v = parseNum(t.value);
+    if (t.value.trim() && (v == null || v < 30 || v > 300)) { toast("Peso inválido"); render(); return; }
+    setLog(keyOf(selected), { weight: t.value.trim() ? Math.round(v * 10) / 10 : null }); render(); if (v) toast("Peso registado"); return;
+  }
+  if (t.matches("[data-set]")) {
+    const f = t.dataset.set, s = state.settings;
+    if (f === "start") { if (t.value) s.start = t.value; }
+    else {
+      const v = parseNum(t.value);
+      if (v == null || v <= 0) { toast("Valor inválido"); render(); return; }
+      s[f] = (f === "weekGoal" || f === "maxBeers") ? Math.round(Math.min(f === "weekGoal" ? 28 : 50, v)) : Math.round(v * 10) / 10;
+    }
+    save(); render(); toast("Guardado");
+  }
+});
+view.addEventListener("input", e => {
+  if (e.target.id === "notes") { autoGrow(e.target); setLog(keyOf(selected), { notes: e.target.value }); }
+});
+view.addEventListener("submit", e => {
+  if (e.target.id !== "addForm") return;
+  e.preventDefault();
+  const f = e.target, name = f.elements.namedItem("item").value.trim(), qty = f.elements.qty.value.trim();
+  if (!name) { f.elements.namedItem("item").focus(); return; }
+  state.shopping.unshift({ id: "u" + Date.now(), name, qty, bought: false });
+  save(); render(); toast("Adicionado");
+  const nf = document.getElementById("addForm"); if (nf) nf.elements.namedItem("item").focus();
+});
+document.getElementById("restoreFile").addEventListener("change", async e => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  try {
+    const s = JSON.parse(await file.text());
+    if (!s || typeof s.logs !== "object" || !s.settings) throw new Error("formato");
+    if (!confirm("Substituir os dados atuais por esta cópia?")) return;
+    const d = defaultState();
+    state = { logs: s.logs, shopping: Array.isArray(s.shopping) ? s.shopping : d.shopping, settings: Object.assign(d.settings, s.settings) };
+    save(); render(); toast("Cópia restaurada");
+  } catch (err) { toast("Ficheiro inválido"); }
+});
+
+// Mudança de dia com a app aberta (ex.: depois da meia-noite)
+let lastDay = keyOf(today());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && keyOf(today()) !== lastDay) {
+    if (keyOf(selected) === lastDay) selected = today();
+    lastDay = keyOf(today()); render();
+  }
+});
+
+render();
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
