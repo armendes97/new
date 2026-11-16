@@ -15,12 +15,16 @@ struct MenuTab: View {
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(.secondary)
                                     Text(Plan.menu[d][meal.id])
+                                    Text("≈ \(kcalText(Foods.menuKcal[d][meal.id])) kcal")
+                                        .font(.caption).foregroundStyle(.secondary)
                                 }
                                 .padding(.vertical, 2)
                             }
                         } header: {
                             HStack {
                                 Text(Plan.dayNames[d])
+                                Spacer()
+                                Text("≈ \(kcalText(Foods.menuKcal[d].reduce(0, +))) kcal")
                                 if d == todayIndex {
                                     Text("HOJE")
                                         .font(.caption2.bold())

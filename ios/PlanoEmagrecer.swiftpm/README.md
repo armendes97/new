@@ -6,11 +6,11 @@ App em SwiftUI (iOS 17+) feita a partir da folha "Plano para emagrecer — ement
 
 | Separador | O quê |
 |---|---|
-| **Hoje** | Ementa do dia com as 5 refeições para marcar, as 4 regras que dão pontos (ementa, doces, caminhada, cerveja), peso, notas, resumo da semana (pontos /28, meta 22, cervejas /4). Setas para registar dias anteriores. |
-| **Progresso** | Peso inicial / atual / meta, kg perdidos e em falta, gráfico do peso, ritmo semanal e data prevista para a meta, gráfico de pontos das últimas 8 semanas, sequência de dias 4/4, histórico editável. |
-| **Ementa** | Os 7 dias da semana, com o dia de hoje destacado. |
-| **Compras** | Os 34 produtos, para marcar; adicionar e apagar produtos, desmarcar tudo para a semana seguinte, partilhar o que falta comprar. |
-| **Mais** | As 11 regras, objetivos editáveis, lembretes (registo à noite, pesagem à segunda, caminhada, preparação ao domingo), exportar CSV. |
+| **Hoje** | Ementa do dia com as 5 refeições para marcar; botão ✏️ em cada refeição para **trocar** pela de outro dia, registar **o que comi** (lista de ~115 pratos e alimentos com calorias e porções) ou **escrever** à mão. Calorias do dia (comidas / previstas / meta, extras e cervejas). **Água** com copos de 250 ml e meta diária. As 4 regras que dão pontos, peso, notas, resumo da semana. |
+| **Progresso** | Peso inicial / atual / meta, ritmo e data prevista, gráfico do peso, pontos das últimas 8 semanas, média de calorias, histórico editável (com água e peso). |
+| **Ementa** | Os 7 dias, com as calorias de cada refeição e do dia. |
+| **Compras** | Os 34 produtos, para marcar; adicionar, apagar, desmarcar tudo, partilhar. |
+| **Mais** | Regras, objetivos (peso, pontos, cervejas, calorias, água), lembretes (registo, pesagem, caminhada, **água de X em X horas**), exportar CSV. |
 
 Pontos por dia (igual à folha): cumpri a ementa + doces só os planeados + caminhei 30 min + cerveja dentro da regra (0 cervejas, ou até 2 à quarta, sábado ou domingo).
 

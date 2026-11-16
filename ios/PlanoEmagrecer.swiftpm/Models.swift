@@ -65,6 +65,12 @@ struct DayLog: Codable, Hashable {
     var weight: Double? = nil
     var notes = ""
     var mealsDone: [Bool] = Array(repeating: false, count: 5)
+    /// Refeições alteradas neste dia (índice 0…4).
+    var custom: [Int: CustomMeal] = [:]
+    /// Extras fora das refeições (petiscos, doces, bebidas).
+    var extras: [FoodItem] = []
+    /// Água bebida, em ml.
+    var water = 0
 
     init(date: String) { self.date = date }
 
@@ -85,7 +91,7 @@ struct DayLog: Codable, Hashable {
     }
 
     // Descodificação tolerante, para versões futuras não perderem dados.
-    enum CodingKeys: String, CodingKey { case date, followedMenu, onlyPlannedSweets, beers, walked, weight, notes, mealsDone }
+    enum CodingKeys: String, CodingKey { case date, followedMenu, onlyPlannedSweets, beers, walked, weight, notes, mealsDone, custom, extras, water }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         date = try c.decode(String.self, forKey: .date)
@@ -98,7 +104,75 @@ struct DayLog: Codable, Hashable {
         var meals = try c.decodeIfPresent([Bool].self, forKey: .mealsDone) ?? []
         while meals.count < 5 { meals.append(false) }
         mealsDone = Array(meals.prefix(5))
+        custom = try c.decodeIfPresent([Int: CustomMeal].self, forKey: .custom) ?? [:]
+        extras = try c.decodeIfPresent([FoodItem].self, forKey: .extras) ?? []
+        water = try c.decodeIfPresent(Int.self, forKey: .water) ?? 0
     }
+}
+
+// MARK: - Refeições alteradas e calorias
+
+struct FoodItem: Codable, Hashable, Identifiable {
+    var id = UUID()
+    var name: String
+    var kcal: Double
+    var portion: String
+    var qty: Double = 1
+
+    var total: Double { kcal * qty }
+}
+
+enum MealChange: String, Codable {
+    case swap   // trocada pela de outro dia
+    case eaten  // o que comi (com alimentos)
+    case edit   // escrita à mão
+}
+
+struct CustomMeal: Codable, Hashable {
+    var mode: MealChange
+    var text: String
+    var kcal: Int?
+    var fromDay: Int? = nil
+    var items: [FoodItem] = []
+}
+
+/// A refeição que vale para um dia: a da ementa ou a alterada.
+struct EffectiveMeal {
+    let text: String
+    let kcal: Int?
+    let change: CustomMeal?
+    let original: String
+
+    var changed: Bool { change != nil }
+}
+
+extension DayLog {
+    func meal(_ i: Int) -> EffectiveMeal {
+        let wd = (Day.date(date).map(Day.isoWeekday) ?? 1) - 1
+        let original = Plan.menu[wd][i]
+        if let c = custom[i] {
+            return EffectiveMeal(text: c.text, kcal: c.kcal, change: c, original: original)
+        }
+        return EffectiveMeal(text: original, kcal: Foods.menuKcal[wd][i], change: nil, original: original)
+    }
+
+    var extrasKcal: Double { extras.reduce(0) { $0 + $1.total } }
+    var beersKcal: Int { beers * Foods.beerKcal }
+
+    /// Calorias das refeições marcadas + extras + cervejas.
+    var eatenKcal: Int {
+        let meals = (0..<5).reduce(0) { sum, i in mealsDone[i] ? sum + (meal(i).kcal ?? 0) : sum }
+        return meals + Int(extrasKcal.rounded()) + beersKcal
+    }
+
+    /// Calorias previstas para o dia (todas as refeições + extras + cervejas).
+    var plannedKcal: Int {
+        let meals = (0..<5).reduce(0) { $0 + (meal($1).kcal ?? 0) }
+        return meals + Int(extrasKcal.rounded()) + beersKcal
+    }
+
+    var mealsWithoutKcal: Int { (0..<5).filter { meal($0).kcal == nil }.count }
+    var hasFood: Bool { mealsDone.contains(true) || !extras.isEmpty }
 }
 
 // MARK: - Compras
@@ -124,12 +198,65 @@ struct AppSettings: Codable, Hashable {
     var weighInReminder = false
     var walkReminder = false
     var walkHour = 18
+
+    var kcalGoal = 2000
+    /// Meta de água em litros.
+    var waterGoal: Double = 2.5
+    var waterReminder = false
+    var waterStartHour = 9
+    var waterEndHour = 19
+    var waterEveryHours = 2
+
+    init() {}
+
+    // Leitura tolerante: dados guardados por versões antigas não têm os campos novos.
+    enum CodingKeys: String, CodingKey {
+        case initialWeight, goalWeight, weeklyPointsGoal, maxBeersWeek, startDate
+        case nightlyReminder, nightlyHour, weighInReminder, walkReminder, walkHour
+        case kcalGoal, waterGoal, waterReminder, waterStartHour, waterEndHour, waterEveryHours
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        initialWeight = try c.decodeIfPresent(Double.self, forKey: .initialWeight) ?? d.initialWeight
+        goalWeight = try c.decodeIfPresent(Double.self, forKey: .goalWeight) ?? d.goalWeight
+        weeklyPointsGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyPointsGoal) ?? d.weeklyPointsGoal
+        maxBeersWeek = try c.decodeIfPresent(Int.self, forKey: .maxBeersWeek) ?? d.maxBeersWeek
+        startDate = try c.decodeIfPresent(String.self, forKey: .startDate) ?? d.startDate
+        nightlyReminder = try c.decodeIfPresent(Bool.self, forKey: .nightlyReminder) ?? d.nightlyReminder
+        nightlyHour = try c.decodeIfPresent(Int.self, forKey: .nightlyHour) ?? d.nightlyHour
+        weighInReminder = try c.decodeIfPresent(Bool.self, forKey: .weighInReminder) ?? d.weighInReminder
+        walkReminder = try c.decodeIfPresent(Bool.self, forKey: .walkReminder) ?? d.walkReminder
+        walkHour = try c.decodeIfPresent(Int.self, forKey: .walkHour) ?? d.walkHour
+        kcalGoal = try c.decodeIfPresent(Int.self, forKey: .kcalGoal) ?? d.kcalGoal
+        waterGoal = try c.decodeIfPresent(Double.self, forKey: .waterGoal) ?? d.waterGoal
+        waterReminder = try c.decodeIfPresent(Bool.self, forKey: .waterReminder) ?? d.waterReminder
+        waterStartHour = try c.decodeIfPresent(Int.self, forKey: .waterStartHour) ?? d.waterStartHour
+        waterEndHour = try c.decodeIfPresent(Int.self, forKey: .waterEndHour) ?? d.waterEndHour
+        waterEveryHours = try c.decodeIfPresent(Int.self, forKey: .waterEveryHours) ?? d.waterEveryHours
+    }
+
+    /// Horas dos lembretes de água.
+    var waterHours: [Int] {
+        guard waterEveryHours > 0, waterStartHour <= waterEndHour else { return [] }
+        return Array(stride(from: waterStartHour, through: waterEndHour, by: waterEveryHours))
+    }
 }
 
 struct AppData: Codable {
     var logs: [String: DayLog] = [:]
     var shopping: [ShoppingItem] = Plan.shopping
     var settings = AppSettings()
+
+    init() {}
+
+    enum CodingKeys: String, CodingKey { case logs, shopping, settings }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        logs = try c.decodeIfPresent([String: DayLog].self, forKey: .logs) ?? [:]
+        shopping = try c.decodeIfPresent([ShoppingItem].self, forKey: .shopping) ?? Plan.shopping
+        settings = try c.decodeIfPresent(AppSettings.self, forKey: .settings) ?? AppSettings()
+    }
 }
 
 // MARK: - Plano (conteúdo da folha)

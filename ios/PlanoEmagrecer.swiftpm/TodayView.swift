@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TodayView: View {
     @Environment(Store.self) private var store
@@ -57,45 +58,40 @@ struct TodayView: View {
     }
 }
 
-/// Formulário de um dia: refeições, as 4 regras que dão pontos, peso e notas.
+/// Formulário de um dia: refeições, calorias, água, as 4 regras que dão pontos, peso e notas.
 struct DayForm: View {
     @Environment(Store.self) private var store
     let date: Date
     var showMeals = true
+    @State private var editing: EditTarget?
 
     var body: some View {
         let key = Day.key(date)
         let log = store.binding(for: key)
-        let menu = Plan.menu(for: date)
         let beerDay = DayLog.isBeerDay(date)
 
         if showMeals {
             Section {
                 ForEach(Plan.meals) { meal in
-                    Button {
-                        log.wrappedValue.mealsDone[meal.id].toggle()
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: log.wrappedValue.mealsDone[meal.id] ? "checkmark.circle.fill" : "circle")
-                                .font(.title2)
-                                .foregroundStyle(log.wrappedValue.mealsDone[meal.id] ? Color.green : Color.secondary)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Label(meal.name, systemImage: meal.icon)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                Text(menu[meal.id])
-                                    .foregroundStyle(.primary)
-                                    .strikethrough(log.wrappedValue.mealsDone[meal.id], color: .secondary)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
+                    MealRow(meal: meal, effective: log.wrappedValue.meal(meal.id),
+                            done: log.wrappedValue.mealsDone[meal.id],
+                            toggle: { log.wrappedValue.mealsDone[meal.id].toggle() },
+                            edit: { editing = EditTarget(date: date, meal: meal.id) })
                 }
             } header: {
                 Text("Ementa — \(Plan.dayNames[Day.isoWeekday(date) - 1])")
             } footer: {
-                Text("Marca as refeições ao longo do dia. Com as 5 marcadas, \"Cumpri a ementa\" fica feito.")
+                Text("Toca na refeição quando a fizeres. Com o lápis trocas por outro dia, registas o que comeste fora ou reescreves.")
             }
+            .sheet(item: $editing) { target in
+                MealEditSheet(target: target, current: target.meal.map { store.log(key).meal($0) })
+            }
+
+            CaloriesSection(key: key, log: log.wrappedValue) {
+                editing = EditTarget(date: date, meal: nil)
+            }
+
+            WaterSection(key: key, ml: log.wrappedValue.water)
         }
 
         Section {
@@ -150,6 +146,197 @@ struct DayForm: View {
             } else {
                 Text("A regra é pesar só à segunda-feira de manhã.")
             }
+        }
+    }
+}
+
+struct MealRow: View {
+    let meal: Meal
+    let effective: EffectiveMeal
+    let done: Bool
+    let toggle: () -> Void
+    let edit: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Button(action: toggle) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .foregroundStyle(done ? Color.green : Color.secondary)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Label(meal.name, systemImage: meal.icon)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            if let c = effective.change { ChangeTag(change: c) }
+                        }
+                        Text(effective.text)
+                            .foregroundStyle(.primary)
+                            .strikethrough(done, color: .secondary)
+                        if let c = effective.change, c.mode != .swap {
+                            Text("Na ementa: \(effective.original)")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Text(effective.kcal.map { "≈ \(kcalText($0)) kcal" } ?? "kcal por indicar")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: edit) {
+                Image(systemName: "square.and.pencil").font(.title3)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Alterar \(meal.name)")
+        }
+    }
+}
+
+struct ChangeTag: View {
+    let change: CustomMeal
+
+    var body: some View {
+        let (label, color): (String, Color) = {
+            switch change.mode {
+            case .swap:
+                let day = change.fromDay.map { Plan.dayNames[$0].components(separatedBy: " ").first ?? "" } ?? ""
+                return ("de \(day.lowercased())", .green)
+            case .eaten: return ("o que comi", .orange)
+            case .edit: return ("alterado", .green)
+            }
+        }()
+        Text(label)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6).padding(.vertical, 1)
+            .background(color.opacity(0.15), in: Capsule())
+            .foregroundStyle(color)
+    }
+}
+
+struct CaloriesSection: View {
+    @Environment(Store.self) private var store
+    let key: String
+    let log: DayLog
+    let addExtra: () -> Void
+
+    var body: some View {
+        let goal = store.settings.kcalGoal
+        let eaten = log.eatenKcal
+        let over = eaten > goal
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(kcalText(eaten)).font(.title.bold()).monospacedDigit()
+                    Text("kcal comidas").foregroundStyle(.secondary)
+                    Spacer()
+                    Text(over ? "+\(kcalText(eaten - goal)) acima" : "faltam \(kcalText(goal - eaten))")
+                        .font(.subheadline.weight(over ? .semibold : .regular))
+                        .foregroundStyle(over ? Color.orange : Color.secondary)
+                }
+                ProgressView(value: Double(min(eaten, goal)), total: Double(max(goal, 1)))
+                    .tint(over ? .orange : .green)
+                Text(plannedText).font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+
+            ForEach(log.extras) { x in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(x.qty != 1 ? "\(fmtQty(x.qty)) × \(x.name)" : x.name)
+                        Text("extra").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("≈ \(kcalText(Int(x.total.rounded()))) kcal").font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            .onDelete { idx in
+                let ids = idx.map { log.extras[$0].id }
+                ids.forEach { store.removeExtra(key, id: $0) }
+            }
+
+            Button(action: addExtra) {
+                Label("Adicionar extra (petisco, doce, bebida…)", systemImage: "plus.circle")
+            }
+        } header: {
+            HStack {
+                Text("Calorias")
+                Spacer()
+                Text("meta \(kcalText(goal)) kcal")
+            }
+        } footer: {
+            Text("Valores aproximados. As cervejas do contador contam \(Foods.beerKcal) kcal cada. Desliza um extra para o apagar.")
+        }
+    }
+
+    private var plannedText: String {
+        var t = "Previsto para o dia: ≈ \(kcalText(log.plannedKcal)) kcal"
+        if log.mealsWithoutKcal > 0 { t += " (+ \(log.mealsWithoutKcal) refeição sem kcal)" }
+        if log.beersKcal > 0 { t += " · cervejas \(kcalText(log.beersKcal)) kcal" }
+        return t
+    }
+}
+
+func litres(_ ml: Int) -> String {
+    (Double(ml) / 1000).formatted(.number.precision(.fractionLength(1...2)).locale(Locale(identifier: "pt_PT")))
+}
+
+struct WaterSection: View {
+    @Environment(Store.self) private var store
+    let key: String
+    let ml: Int
+
+    var body: some View {
+        let goal = Int((store.settings.waterGoal * 1000).rounded())
+        let done = ml >= goal
+        let glasses = max(Int((Double(goal) / 250).rounded(.up)), ml / 250)
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("\(litres(ml)) L").font(.title.bold()).monospacedDigit().foregroundStyle(.blue)
+                    Text("bebidos").foregroundStyle(.secondary)
+                    Spacer()
+                    Text(done ? "Meta cumprida 💧" : "faltam \(litres(goal - ml)) L")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 10), alignment: .leading, spacing: 6) {
+                    ForEach(0..<glasses, id: \.self) { i in
+                        Image(systemName: i < ml / 250 ? "drop.fill" : (i == ml / 250 && ml % 250 >= 125 ? "drop.halffull" : "drop"))
+                            .font(.title3)
+                            .foregroundStyle(.blue)
+                    }
+                }
+                .accessibilityHidden(true)
+                HStack(spacing: 10) {
+                    Button { add(250) } label: { Text("+ 250 ml").frame(maxWidth: .infinity) }
+                    Button { add(500) } label: { Text("+ 500 ml").frame(maxWidth: .infinity) }
+                    Button { store.addWater(key, ml: -250) } label: { Image(systemName: "minus") }
+                        .accessibilityLabel("Tirar 250 ml")
+                }
+                .buttonStyle(.bordered)
+                .tint(.blue)
+            }
+            .padding(.vertical, 4)
+        } header: {
+            HStack {
+                Text("Água")
+                Spacer()
+                Text("meta \(litres(goal)) L")
+            }
+        } footer: {
+            Text("Cada gota são 250 ml. Bebe um copo antes de cada refeição e um entre cada cerveja.")
+        }
+    }
+
+    private func add(_ amount: Int) {
+        let goal = Int((store.settings.waterGoal * 1000).rounded())
+        let before = ml
+        store.addWater(key, ml: amount)
+        if before < goal && before + amount >= goal {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
     }
 }

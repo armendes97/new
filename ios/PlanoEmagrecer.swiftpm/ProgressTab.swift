@@ -66,6 +66,11 @@ struct ProgressTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            if let avg = store.averageKcal {
+                Label("Média de calorias (últimos \(avg.days) dias): ≈ \(kcalText(avg.kcal)) kcal / meta \(kcalText(s.kcalGoal))",
+                      systemImage: "flame")
+                    .font(.subheadline)
+            }
         }
         .padding(.vertical, 4)
     }
@@ -157,6 +162,9 @@ struct HistoryView: View {
                                 }
                             }
                             Spacer()
+                            if log.water > 0 {
+                                Text("💧\(litres(log.water))").font(.caption).foregroundStyle(.blue)
+                            }
                             if let w = log.weight {
                                 Text("\(fmt(w)) kg").font(.caption).foregroundStyle(.secondary)
                             }

@@ -11,7 +11,7 @@ enum Reminders {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
 
-        let wantsAny = s.nightlyReminder || s.weighInReminder || s.walkReminder
+        let wantsAny = s.nightlyReminder || s.weighInReminder || s.walkReminder || s.waterReminder
         guard wantsAny, await requestAuthorization() else { return }
 
         if s.nightlyReminder {
@@ -31,6 +31,15 @@ enum Reminders {
                      title: "Caminhada de 30 minutos 🚶",
                      body: "Ainda não caminhaste hoje? Bora!",
                      hour: s.walkHour)
+        }
+        if s.waterReminder {
+            let goal = s.waterGoal.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "pt_PT")))
+            for h in s.waterHours {
+                schedule(id: "water-\(h)",
+                         title: "Beber água 💧",
+                         body: "Um copo de 250 ml. A meta de hoje é \(goal) L — regista na app.",
+                         hour: h)
+            }
         }
         // Domingo: preparar sopa e marmitas
         if s.nightlyReminder {

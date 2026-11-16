@@ -55,7 +55,9 @@ final class Store {
                 var value = newValue
                 let old = self.log(key)
                 // Marcou todas as refeições → "Cumpri a ementa" fica marcado automaticamente.
-                if value.mealsDone != old.mealsDone && !value.mealsDone.contains(false) {
+                // (exceto se alguma refeição foi "o que comi", ou seja, fora do plano)
+                if value.mealsDone != old.mealsDone && !value.mealsDone.contains(false)
+                    && !value.custom.values.contains(where: { $0.mode == .eaten }) {
                     value.followedMenu = true
                 }
                 self.data.logs[key] = value
@@ -72,6 +74,44 @@ final class Store {
     }
 
     var settings: AppSettings { data.settings }
+
+    // MARK: Refeições, extras e água
+
+    private func update(_ key: String, _ change: (inout DayLog) -> Void) {
+        var log = self.log(key)
+        change(&log)
+        data.logs[key] = log
+        save()
+    }
+
+    /// Altera (ou repõe, com nil) uma refeição do dia.
+    func setMeal(_ key: String, _ index: Int, _ custom: CustomMeal?, markDone: Bool = false) {
+        update(key) { log in
+            log.custom[index] = custom
+            if markDone { log.mealsDone[index] = true }
+        }
+    }
+
+    func addExtras(_ key: String, _ items: [FoodItem]) {
+        update(key) { $0.extras.append(contentsOf: items) }
+    }
+
+    func removeExtra(_ key: String, id: UUID) {
+        update(key) { $0.extras.removeAll { $0.id == id } }
+    }
+
+    func addWater(_ key: String, ml: Int) {
+        update(key) { $0.water = max(0, $0.water + ml) }
+    }
+
+    /// Média de calorias dos últimos dias (até 7) com comida registada.
+    var averageKcal: (kcal: Int, days: Int)? {
+        let today = Day.key(Day.today)
+        let days = data.logs.values.filter { $0.hasFood && $0.date <= today }
+            .sorted { $0.date > $1.date }.prefix(7)
+        guard !days.isEmpty else { return nil }
+        return (days.reduce(0) { $0 + $1.eatenKcal } / days.count, days.count)
+    }
 
     var startDate: Date { Day.date(settings.startDate) ?? Day.today }
 
@@ -200,11 +240,14 @@ final class Store {
     // MARK: Exportar
 
     var csv: String {
-        var lines = ["Data;Cumpri a ementa;Doces só os planeados;Cervejas;Caminhei 30 min;Pontos;Peso (kg);Notas"]
+        var lines = ["Data;Cumpri a ementa;Doces só os planeados;Cervejas;Caminhei 30 min;Pontos;Peso (kg);Calorias (kcal);Água (L);Refeições alteradas;Notas"]
         for l in data.logs.values.sorted(by: { $0.date < $1.date }) {
             let w = l.weight.map { String(format: "%.1f", $0).replacingOccurrences(of: ".", with: ",") } ?? ""
             let notes = l.notes.replacingOccurrences(of: ";", with: ",").replacingOccurrences(of: "\n", with: " ")
-            lines.append("\(l.date);\(l.followedMenu ? "Sim" : "Não");\(l.onlyPlannedSweets ? "Sim" : "Não");\(l.beers);\(l.walked ? "Sim" : "Não");\(l.points);\(w);\(notes)")
+            let water = String(format: "%.2f", Double(l.water) / 1000).replacingOccurrences(of: ".", with: ",")
+            let changed = l.custom.keys.sorted().map { "\(Plan.meals[$0].name): \(l.custom[$0]!.text)" }
+                .joined(separator: " | ").replacingOccurrences(of: ";", with: ",").replacingOccurrences(of: "\n", with: " ")
+            lines.append("\(l.date);\(l.followedMenu ? "Sim" : "Não");\(l.onlyPlannedSweets ? "Sim" : "Não");\(l.beers);\(l.walked ? "Sim" : "Não");\(l.points);\(w);\(l.eatenKcal);\(water);\(changed);\(notes)")
         }
         return lines.joined(separator: "\n")
     }
