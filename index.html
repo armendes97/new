@@ -191,6 +191,46 @@ nav.tabs button[aria-current="page"] { color: var(--green); }
 
 .install { background: var(--green-soft); border-radius: 12px; padding: 12px 14px; font-size: 15px; margin-top: 4px; }
 .install b { color: var(--green); }
+
+/* refeições editáveis */
+.mealrow { display: flex; align-items: flex-start; position: relative; }
+.mealrow + .mealrow::before { content: ""; position: absolute; top: 0; left: 52px; right: 0; border-top: 0.5px solid var(--line); }
+.mealrow .tap { display: flex; gap: 12px; align-items: flex-start; padding: 11px 4px 11px 16px; flex: 1; min-width: 0; }
+.editbtn { border: 0; background: none; color: var(--accent); width: 46px; height: 46px; margin: 4px 4px 0 0; border-radius: 23px; flex: none; font-size: 19px; }
+.editbtn:active { background: var(--line); }
+.kcal { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9px; background: var(--green-soft); color: var(--green); margin-left: 6px; vertical-align: 1px; }
+.tag.out { background: rgba(183,121,31,.15); color: var(--amber); }
+.orig { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.kbar { height: 10px; border-radius: 5px; background: var(--switch-off); overflow: hidden; margin: 10px 0 6px; position: relative; }
+.kbar > div { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 5px; }
+.kbar .plan { background: var(--green-soft); }
+.kbar .eat { background: var(--green); }
+.kbar.over .eat { background: var(--amber); }
+.bigk { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* folha (bottom sheet) */
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 30; opacity: 0; transition: opacity .2s; }
+.sheet-bg.open { opacity: 1; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; top: max(env(safe-area-inset-top), 28px); z-index: 31; background: var(--bg); border-radius: 14px 14px 0 0; display: flex; flex-direction: column; transform: translateY(100%); transition: transform .28s cubic-bezier(.2,.8,.2,1); max-width: 640px; margin: 0 auto; }
+.sheet.open { transform: none; }
+.sheet-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; }
+.sheet-head h2 { font-size: 18px; margin: 0; flex: 1; }
+.sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px calc(24px + env(safe-area-inset-bottom)); flex: 1; }
+.closebtn { border: 0; background: var(--switch-off); color: var(--muted); width: 30px; height: 30px; border-radius: 15px; font-size: 17px; line-height: 1; }
+.seg { display: flex; background: var(--switch-off); border-radius: 9px; padding: 2px; margin: 4px 0 12px; }
+.seg button { flex: 1; border: 0; background: none; padding: 7px 4px; border-radius: 7px; font-size: 14px; font-weight: 600; color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.search { width: 100%; border: 0; background: var(--card); border-radius: 10px; padding: 10px 12px; outline: none; font-size: 17px; }
+.field { width: 100%; border: 0; background: var(--card); border-radius: 10px; padding: 10px 12px; outline: none; }
+textarea.field { min-height: 90px; resize: vertical; }
+.addbtn { border: 0; background: var(--green-soft); color: var(--green); width: 34px; height: 34px; border-radius: 17px; font-size: 20px; font-weight: 600; flex: none; }
+.cat { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); padding: 12px 16px 4px; }
+.qty { min-width: 30px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.savebar { position: sticky; bottom: 0; padding: 12px 0 4px; background: linear-gradient(transparent, var(--bg) 30%); }
+.btn.full { width: 100%; padding: 13px; font-size: 17px; }
+.btn:disabled { opacity: .4; }
+body.locked { overflow: hidden; }
 </style>
 </head>
 <body>
@@ -206,6 +246,8 @@ nav.tabs button[aria-current="page"] { color: var(--green); }
   </div>
 </nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sheet-bg" id="sheetBg" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden></div>
 <input type="file" id="restoreFile" accept="application/json,.json" hidden>
 
 <script>
@@ -255,6 +297,140 @@ const SHOP = [
   ["Chocolate negro 70%", "1 tablete (para o doce planeado)"], ["Cerveja sem álcool", "6"], ["Azeite", "se faltar"]
 ];
 
+/* Calorias estimadas de cada refeição da ementa [dia][refeição] */
+const MENU_KCAL = [
+  [370, 175, 650, 260, 420],
+  [365, 220, 490, 200, 345],
+  [370, 175, 685, 220, 440],
+  [365, 220, 660, 260, 495],
+  [370, 175, 570, 200, 415],
+  [330, 270, 800, 200, 580],
+  [370, 175, 620, 260, 400]
+];
+const BEER_KCAL = 140;
+
+/* Alimentos e pratos: [nome, kcal por porção, porção, categoria] */
+const FOODS = [
+  ["Prato do dia de carne", 750, "dose", "Restaurante"],
+  ["Prato do dia de peixe", 600, "dose", "Restaurante"],
+  ["Meia dose (prato do dia)", 450, "meia dose", "Restaurante"],
+  ["Bitoque com ovo, batata frita e arroz", 1100, "dose", "Restaurante"],
+  ["Bife grelhado com salada", 450, "dose", "Restaurante"],
+  ["Francesinha com batatas", 1500, "dose", "Restaurante"],
+  ["Bacalhau à Brás", 750, "dose", "Restaurante"],
+  ["Bacalhau com natas", 850, "dose", "Restaurante"],
+  ["Bacalhau cozido com grão e batata", 600, "dose", "Restaurante"],
+  ["Arroz de pato", 800, "dose", "Restaurante"],
+  ["Arroz de marisco", 650, "dose", "Restaurante"],
+  ["Feijoada", 850, "dose", "Restaurante"],
+  ["Cozido à portuguesa", 1000, "dose", "Restaurante"],
+  ["Carne de porco à alentejana", 900, "dose", "Restaurante"],
+  ["Rojões com batata", 900, "dose", "Restaurante"],
+  ["Alheira com ovo e batata frita", 950, "dose", "Restaurante"],
+  ["Frango assado (½ frango, com pele)", 550, "½ frango", "Restaurante"],
+  ["Frango de churrasco (¼, com pele)", 350, "¼ frango", "Restaurante"],
+  ["Febras grelhadas", 400, "2 febras", "Restaurante"],
+  ["Peixe grelhado", 300, "dose", "Restaurante"],
+  ["Sardinhas assadas", 400, "4 sardinhas", "Restaurante"],
+  ["Polvo à lagareiro", 650, "dose", "Restaurante"],
+  ["Caldeirada de peixe", 550, "dose", "Restaurante"],
+  ["Lasanha", 650, "dose", "Restaurante"],
+  ["Esparguete à bolonhesa", 700, "dose", "Restaurante"],
+  ["Massa carbonara", 800, "dose", "Restaurante"],
+  ["Empadão", 600, "dose", "Restaurante"],
+  ["Hambúrguer no prato com ovo", 650, "dose", "Restaurante"],
+  ["Salada César com frango", 500, "dose", "Restaurante"],
+  ["Salada de atum", 350, "dose", "Restaurante"],
+  ["Omelete (3 ovos) com salada", 330, "dose", "Restaurante"],
+  ["Pizza", 280, "fatia", "Fast food"],
+  ["Pizza média inteira", 1100, "pizza", "Fast food"],
+  ["Menu hambúrguer (batatas + bebida)", 1100, "menu", "Fast food"],
+  ["Hambúrguer simples", 300, "unidade", "Fast food"],
+  ["Kebab / durum", 750, "unidade", "Fast food"],
+  ["Sushi", 45, "peça", "Fast food"],
+  ["Nuggets de frango", 50, "unidade", "Fast food"],
+  ["Cachorro", 450, "unidade", "Fast food"],
+  ["Prego no pão", 500, "unidade", "Sandes"],
+  ["Bifana no pão", 450, "unidade", "Sandes"],
+  ["Tosta mista", 350, "unidade", "Sandes"],
+  ["Sandes mista", 300, "unidade", "Sandes"],
+  ["Sandes de atum", 350, "unidade", "Sandes"],
+  ["Sandes de frango", 380, "unidade", "Sandes"],
+  ["Wrap de frango", 450, "unidade", "Sandes"],
+  ["Sopa de legumes", 90, "prato", "Sopas e acompanhamentos"],
+  ["Sopa de feijão ou grão", 180, "prato", "Sopas e acompanhamentos"],
+  ["Caldo verde", 150, "prato", "Sopas e acompanhamentos"],
+  ["Arroz cozido", 200, "chávena", "Sopas e acompanhamentos"],
+  ["Batata frita", 400, "dose", "Sopas e acompanhamentos"],
+  ["Batata cozida", 110, "batata média", "Sopas e acompanhamentos"],
+  ["Puré de batata", 200, "dose", "Sopas e acompanhamentos"],
+  ["Massa cozida", 220, "chávena", "Sopas e acompanhamentos"],
+  ["Feijão ou grão cozido", 120, "½ chávena", "Sopas e acompanhamentos"],
+  ["Legumes cozidos ou salteados", 50, "dose", "Sopas e acompanhamentos"],
+  ["Salada com azeite", 80, "dose", "Sopas e acompanhamentos"],
+  ["Frango grelhado (peito)", 165, "100 g", "Carne, peixe e ovos"],
+  ["Peru grelhado", 110, "100 g", "Carne, peixe e ovos"],
+  ["Bife de vaca", 220, "100 g", "Carne, peixe e ovos"],
+  ["Lombo de porco", 160, "100 g", "Carne, peixe e ovos"],
+  ["Salmão", 205, "100 g", "Carne, peixe e ovos"],
+  ["Pescada / peixe branco", 80, "100 g", "Carne, peixe e ovos"],
+  ["Atum ao natural", 100, "lata", "Carne, peixe e ovos"],
+  ["Ovo cozido", 75, "unidade", "Carne, peixe e ovos"],
+  ["Ovo estrelado", 110, "unidade", "Carne, peixe e ovos"],
+  ["Pão (papo-seco)", 150, "unidade", "Pão e pequeno-almoço"],
+  ["Pão integral", 80, "fatia", "Pão e pequeno-almoço"],
+  ["Broa de milho", 150, "fatia", "Pão e pequeno-almoço"],
+  ["Torrada com manteiga", 350, "dose", "Pão e pequeno-almoço"],
+  ["Croissant simples", 230, "unidade", "Pão e pequeno-almoço"],
+  ["Croissant misto", 380, "unidade", "Pão e pequeno-almoço"],
+  ["Cereais com leite", 300, "taça", "Pão e pequeno-almoço"],
+  ["Papas de aveia (40 g + leite)", 270, "taça", "Pão e pequeno-almoço"],
+  ["Panquecas de aveia", 370, "dose", "Pão e pequeno-almoço"],
+  ["Queijo fresco", 100, "unidade", "Pão e pequeno-almoço"],
+  ["Queijo flamengo", 70, "fatia", "Pão e pequeno-almoço"],
+  ["Fiambre de peru", 20, "fatia", "Pão e pequeno-almoço"],
+  ["Manteiga", 75, "c. chá cheia", "Pão e pequeno-almoço"],
+  ["Manteiga de amendoim", 95, "c. sopa", "Pão e pequeno-almoço"],
+  ["Iogurte natural", 70, "unidade", "Lanches"],
+  ["Iogurte grego natural", 120, "unidade", "Lanches"],
+  ["Skyr natural", 95, "unidade", "Lanches"],
+  ["Iogurte açucarado ou líquido", 130, "unidade", "Lanches"],
+  ["Peça de fruta (maçã, pera, laranja)", 80, "unidade", "Lanches"],
+  ["Banana", 105, "unidade", "Lanches"],
+  ["Kiwi", 45, "unidade", "Lanches"],
+  ["Frutos secos", 190, "punhado (30 g)", "Lanches"],
+  ["Barra de cereais", 120, "unidade", "Lanches"],
+  ["Bolachas Maria", 33, "bolacha", "Lanches"],
+  ["Pastel de nata", 300, "unidade", "Doces"],
+  ["Bola de Berlim", 450, "unidade", "Doces"],
+  ["Queque", 350, "unidade", "Doces"],
+  ["Bolo", 350, "fatia", "Doces"],
+  ["Chocolate negro 70%", 55, "quadrado", "Doces"],
+  ["Chocolate de leite", 540, "tablete 100 g", "Doces"],
+  ["Gelado", 150, "bola", "Doces"],
+  ["Mousse de chocolate", 300, "taça", "Doces"],
+  ["Arroz doce", 300, "taça", "Doces"],
+  ["Batatas fritas de pacote", 250, "pacote pequeno", "Doces"],
+  ["Amendoins", 170, "punhado", "Doces"],
+  ["Café", 2, "chávena", "Bebidas"],
+  ["Café com açúcar", 22, "chávena", "Bebidas"],
+  ["Galão", 120, "copo", "Bebidas"],
+  ["Meia de leite", 90, "chávena", "Bebidas"],
+  ["Leite meio-gordo", 115, "copo 250 ml", "Bebidas"],
+  ["Imperial / fino", 85, "20 cl", "Bebidas"],
+  ["Cerveja mini", 105, "25 cl", "Bebidas"],
+  ["Cerveja", 140, "33 cl", "Bebidas"],
+  ["Cerveja sem álcool", 70, "33 cl", "Bebidas"],
+  ["Vinho", 125, "copo", "Bebidas"],
+  ["Refrigerante", 140, "lata", "Bebidas"],
+  ["Refrigerante zero", 1, "lata", "Bebidas"],
+  ["Sumo de laranja natural", 110, "copo", "Bebidas"],
+  ["Água", 0, "copo", "Bebidas"]
+];
+const norm = t => String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const fmtQ = q => { const w = Math.floor(q), h = q - w >= .5; return (w ? w : "") + (h ? "½" : "") || "0"; };
+const kc = n => Math.round(n).toLocaleString("pt-PT");
+
 /* ---------- Datas ---------- */
 const pad = n => String(n).padStart(2, "0");
 const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -276,7 +452,7 @@ const defaultShopping = () => SHOP.map(([name, qty], i) => ({ id: "s" + i, name,
 const defaultState = () => ({
   logs: {},
   shopping: defaultShopping(),
-  settings: { initial: 93, goal: 85, weekGoal: 22, maxBeers: 4, start: keyOf(today()) }
+  settings: { initial: 93, goal: 85, weekGoal: 22, maxBeers: 4, kcal: 2000, start: keyOf(today()) }
 });
 let state = load();
 
@@ -296,15 +472,34 @@ function save() {
 }
 if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(() => {}); }
 
-const blankLog = () => ({ menu: false, sweets: false, beers: 0, walk: false, weight: null, notes: "", meals: [false, false, false, false, false] });
+const blankLog = () => ({ menu: false, sweets: false, beers: 0, walk: false, weight: null, notes: "", meals: [false, false, false, false, false], custom: {}, extras: [] });
 const getLog = k => Object.assign(blankLog(), state.logs[k] || {});
 function setLog(k, patch) {
   const old = getLog(k);
   const next = Object.assign(old, patch);
-  if (patch.meals && next.meals.every(Boolean)) next.menu = true;
+  // Todas as refeições feitas e nenhuma "comida fora" → cumpriu a ementa.
+  if (patch.meals && next.meals.every(Boolean) && !Object.values(next.custom || {}).some(c => c.mode === "eaten")) next.menu = true;
   state.logs[k] = next;
   save();
 }
+/* Refeição efetiva de um dia: a da ementa ou a que foi trocada/escrita/comida. */
+function mealOf(log, d, i) {
+  const wd = isoWd(d) - 1, c = (log.custom || {})[i];
+  const base = { text: MENU[wd][i], kcal: MENU_KCAL[wd][i], changed: false };
+  if (!c) return base;
+  return { text: c.text, kcal: c.kcal == null ? null : c.kcal, changed: true, mode: c.mode, fromDay: c.fromDay, items: c.items, orig: base.text };
+}
+function dayKcal(log, d) {
+  let eaten = 0, planned = 0, unknown = 0;
+  for (let i = 0; i < 5; i++) {
+    const m = mealOf(log, d, i);
+    if (m.kcal == null) { unknown++; continue; }
+    planned += m.kcal; if (log.meals[i]) eaten += m.kcal;
+  }
+  const extras = (log.extras || []).reduce((a, x) => a + x.k * x.q, 0), beers = (log.beers || 0) * BEER_KCAL;
+  return { eaten: eaten + extras + beers, planned: planned + extras + beers, extras, beers, unknown };
+}
+const hasMealsDone = log => (log.meals || []).some(Boolean) || (log.extras || []).length > 0;
 const beerDay = d => { const w = isoWd(d); return w === 3 || w >= 6; };
 const beerOK = (log, d) => log.beers === 0 || (beerDay(d) && log.beers <= 2);
 const points = (log, d) => [log.menu, log.sweets, log.walk, beerOK(log, d)].filter(Boolean).length;
@@ -400,6 +595,30 @@ function weekCard(date) {
   </div>`;
 }
 
+function kcalCard(log, d) {
+  const s = state.settings, k = dayKcal(log, d), target = s.kcal || 2000;
+  const over = k.eaten > target, left = target - k.eaten;
+  const ex = log.extras || [];
+  return `
+    <div class="section-title"><span>Calorias</span><span>meta ${kc(target)} kcal</span></div>
+    <div class="card">
+      <div class="pad" style="padding-bottom:10px">
+        <div class="between" style="align-items:baseline">
+          <span><span class="bigk">${kc(k.eaten)}</span> <span class="muted">kcal comidas</span></span>
+          <span class="${over ? "" : "muted"}" style="${over ? "color:var(--amber);font-weight:600" : ""}">${over ? `+${kc(-left)} acima` : `faltam ${kc(left)}`}</span>
+        </div>
+        <div class="kbar ${over ? "over" : ""}" role="img" aria-label="${kc(k.eaten)} de ${kc(target)} kcal">
+          <div class="plan" style="width:${Math.min(100, k.planned / target * 100).toFixed(1)}%"></div>
+          <div class="eat" style="width:${Math.min(100, k.eaten / target * 100).toFixed(1)}%"></div>
+        </div>
+        <div class="small muted">Previsto para o dia: ≈ ${kc(k.planned)} kcal${k.unknown ? ` (+ ${k.unknown} refeição sem kcal)` : ""}${k.beers ? ` · cervejas ${kc(k.beers)} kcal` : ""}</div>
+      </div>
+      ${ex.map((x, j) => `<div class="row"><span class="ico">➕</span><span class="grow">${esc(x.n)}${x.q !== 1 ? ` <span class="muted">× ${fmtQ(x.q)}</span>` : ""}<div class="kcal">≈ ${kc(x.k * x.q)} kcal</div></span><button class="del" data-delextra="${j}" aria-label="Apagar ${esc(x.n)}">×</button></div>`).join("")}
+      <button class="row tap plain" data-act="addextra" style="color:var(--accent)"><span class="ico">＋</span><span class="grow">Adicionar extra (petisco, doce, bebida…)</span></button>
+    </div>
+    <div class="foot">Valores aproximados. As cervejas do contador contam ${BEER_KCAL} kcal cada.</div>`;
+}
+
 function renderHoje() {
   const d = selected, k = keyOf(d), log = getLog(k), menu = MENU[isoWd(d) - 1];
   const isToday = sameDay(d, today()), future = d > today();
@@ -424,16 +643,24 @@ function renderHoje() {
 
     <div class="section-title"><span>Ementa · ${DAYNAMES[isoWd(d) - 1]}</span></div>
     <div class="card">
-      ${MEALS.map((m, i) => `
-        <button class="row tap rowtop" data-meal="${i}" aria-pressed="${log.meals[i]}">
-          ${check(log.meals[i])}
-          <div class="grow">
-            <div class="label-sm">${m.i} ${m.n}</div>
-            <div class="${log.meals[i] ? "strike" : ""}">${esc(menu[i])}</div>
-          </div>
-        </button>`).join("")}
+      ${MEALS.map((m, i) => { const ml = mealOf(log, d, i);
+        const tag = !ml.changed ? "" : ml.mode === "swap" ? `<span class="tag">de ${DAYNAMES[ml.fromDay].split(" ")[0].toLowerCase()}</span>` : ml.mode === "eaten" ? `<span class="tag out">o que comi</span>` : `<span class="tag">alterado</span>`;
+        return `<div class="mealrow">
+          <button class="tap" data-meal="${i}" aria-pressed="${log.meals[i]}">
+            ${check(log.meals[i])}
+            <div class="grow">
+              <div class="label-sm">${m.i} ${m.n}${tag}</div>
+              <div class="${log.meals[i] ? "strike" : ""}">${esc(ml.text)}</div>
+              ${ml.changed && ml.mode !== "swap" ? `<div class="orig">Na ementa: ${esc(ml.orig)}</div>` : ""}
+              <div class="kcal">${ml.kcal == null ? "kcal por indicar" : "≈ " + kc(ml.kcal) + " kcal"}</div>
+            </div>
+          </button>
+          <button class="editbtn" data-editmeal="${i}" aria-label="Alterar ${m.n}">✎</button>
+        </div>`; }).join("")}
     </div>
-    <div class="foot">Marca as refeições ao longo do dia. Com as 5 marcadas, "Cumpri a ementa" fica feito.</div>
+    <div class="foot">Toca na refeição quando a fizeres. Com ✎ trocas por outro dia, registas o que comeste fora ou reescreves.</div>
+
+    ${kcalCard(log, d)}
 
     <div class="section-title"><span>Pontos do dia</span>${dots(pts)}</div>
     <div class="card">
@@ -532,6 +759,10 @@ function renderProgresso() {
       <div class="bar" role="progressbar" aria-valuenow="${Math.round(prog * 100)}" aria-valuemin="0" aria-valuemax="100"><div style="width:${(prog * 100).toFixed(1)}%"></div></div>
       <div class="between"><b>${lost >= 0 ? `Já perdi ${kg(lost)} kg` : `Ganhei ${kg(-lost)} kg`}</b><span class="muted">${rem > 0 ? `Faltam ${kg(rem)} kg` : "Meta atingida 🎉"}</span></div>
       ${rateHtml}
+      ${(() => { const ks = Object.keys(state.logs).sort().reverse().filter(k => hasMealsDone(getLog(k)) && parseKey(k) <= today()).slice(0, 7);
+        if (!ks.length) return "";
+        const avg = ks.reduce((a, k) => a + dayKcal(getLog(k), parseKey(k)).eaten, 0) / ks.length;
+        return `<div class="info"><span>🔥</span><span>Média de calorias (últimos ${ks.length} dias registados): <b>≈ ${kc(avg)} kcal</b> / meta ${kc(state.settings.kcal || 2000)}</span></div>`; })()}
     </div>
 
     <div class="section-title"><span>Evolução do peso</span></div>
@@ -557,9 +788,9 @@ function renderProgresso() {
 function renderEmenta() {
   const ti = isoWd(today()) - 1;
   view.innerHTML = `<h1>Ementa</h1>` + MENU.map((day, di) => `
-    <div class="section-title" id="day-${di}"><span>${DAYNAMES[di]} ${di === ti ? '<span class="pill">HOJE</span>' : ""}</span></div>
+    <div class="section-title" id="day-${di}"><span>${DAYNAMES[di]} ${di === ti ? '<span class="pill">HOJE</span>' : ""}</span><span>≈ ${kc(MENU_KCAL[di].reduce((a, b) => a + b, 0))} kcal</span></div>
     <div class="card daycard ${di === ti ? "today" : ""}">
-      ${day.map((m, i) => `<div class="row rowtop"><span class="ico">${MEALS[i].i}</span><div class="grow"><div class="label-sm">${MEALS[i].n}</div><div>${esc(m)}</div></div></div>`).join("")}
+      ${day.map((m, i) => `<div class="row rowtop"><span class="ico">${MEALS[i].i}</span><div class="grow"><div class="label-sm">${MEALS[i].n}</div><div>${esc(m)}</div><div class="kcal">≈ ${kc(MENU_KCAL[di][i])} kcal</div></div></div>`).join("")}
     </div>`).join("") + `
     <div class="section-title"><span>Lembra-te</span></div>
     <div class="card">
@@ -629,6 +860,7 @@ function renderMais() {
       <div class="row plain"><span class="grow">Peso inicial</span><input class="num-in" data-set="initial" inputmode="decimal" value="${kg(s.initial)}"><span class="muted">kg</span></div>
       <div class="row plain"><span class="grow">Meta</span><input class="num-in" data-set="goal" inputmode="decimal" value="${kg(s.goal)}"><span class="muted">kg</span></div>
       <div class="row plain"><span class="grow">Meta semanal de pontos</span><input class="num-in" data-set="weekGoal" inputmode="numeric" value="${s.weekGoal}"><span class="muted">/ 28</span></div>
+      <div class="row plain"><span class="grow">Meta diária de calorias</span><input class="num-in" data-set="kcal" inputmode="numeric" value="${s.kcal || 2000}"><span class="muted">kcal</span></div>
       <div class="row plain"><span class="grow">Máx. cervejas por semana</span><input class="num-in" data-set="maxBeers" inputmode="numeric" value="${s.maxBeers}"></div>
       <div class="row plain"><span class="grow">Início do plano</span><input type="date" data-set="start" value="${s.start}" style="border:0;background:none;text-align:right;color:var(--accent)"></div>
     </div>
@@ -662,10 +894,12 @@ async function shareFile(name, text, type) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 function csv() {
-  const rows = [["Data", "Cumpri a ementa", "Doces só os planeados", "Cervejas", "Caminhei 30 min", "Pontos", "Peso (kg)", "Notas"]];
+  const rows = [["Data", "Cumpri a ementa", "Doces só os planeados", "Cervejas", "Caminhei 30 min", "Pontos", "Peso (kg)", "Calorias (kcal)", "Refeições alteradas", "Notas"]];
   Object.keys(state.logs).sort().forEach(k => {
     const l = getLog(k), d = parseKey(k);
-    rows.push([k, l.menu ? "Sim" : "Não", l.sweets ? "Sim" : "Não", l.beers, l.walk ? "Sim" : "Não", points(l, d), l.weight == null ? "" : kg(l.weight), (l.notes || "").replace(/[;\n\r]/g, " ")]);
+    rows.push([k, l.menu ? "Sim" : "Não", l.sweets ? "Sim" : "Não", l.beers, l.walk ? "Sim" : "Não", points(l, d), l.weight == null ? "" : kg(l.weight), Math.round(dayKcal(l, d).eaten),
+      Object.entries(l.custom || {}).map(([i, c]) => `${MEALS[i].n}: ${c.text}`).join(" | ").replace(/[;\n\r]/g, " "),
+      (l.notes || "").replace(/[;\n\r]/g, " ")]);
   });
   return "﻿" + rows.map(r => r.join(";")).join("\n");
 }
@@ -688,6 +922,10 @@ view.addEventListener("click", async e => {
   if (shop) { const it = state.shopping.find(x => x.id === shop.dataset.shop); if (it) { it.bought = !it.bought; save(); render(); } return; }
   const del = t.closest("[data-delshop]");
   if (del) { const it = state.shopping.find(x => x.id === del.dataset.delshop); if (it && confirm(`Apagar "${it.name}" da lista?`)) { state.shopping = state.shopping.filter(x => x !== it); save(); render(); } return; }
+  const em = t.closest("[data-editmeal]");
+  if (em) { openSheet(+em.dataset.editmeal); return; }
+  const dx = t.closest("[data-delextra]");
+  if (dx) { const k = keyOf(selected), l = getLog(k), ex = l.extras.slice(); ex.splice(+dx.dataset.delextra, 1); setLog(k, { extras: ex }); render(); return; }
   const go = t.closest("[data-goto]");
   if (go) { selected = parseKey(go.dataset.goto); tab = "hoje"; render(); window.scrollTo(0, 0); return; }
   const act = t.closest("[data-act]"); if (!act) return;
@@ -696,6 +934,7 @@ view.addEventListener("click", async e => {
     case "prev": selected = addDays(selected, -1); render(); break;
     case "next": selected = addDays(selected, 1); render(); break;
     case "today": selected = today(); render(); break;
+    case "addextra": openSheet("extra"); break;
     case "beer+": setLog(k, { beers: Math.min(12, getLog(k).beers + 1) }); render(); break;
     case "beer-": setLog(k, { beers: Math.max(0, getLog(k).beers - 1) }); render(); break;
     case "share": {
@@ -729,7 +968,7 @@ view.addEventListener("change", e => {
     else {
       const v = parseNum(t.value);
       if (v == null || v <= 0) { toast("Valor inválido"); render(); return; }
-      s[f] = (f === "weekGoal" || f === "maxBeers") ? Math.round(Math.min(f === "weekGoal" ? 28 : 50, v)) : Math.round(v * 10) / 10;
+      s[f] = f === "kcal" ? Math.round(Math.min(6000, Math.max(800, v))) : (f === "weekGoal" || f === "maxBeers") ? Math.round(Math.min(f === "weekGoal" ? 28 : 50, v)) : Math.round(v * 10) / 10;
     }
     save(); render(); toast("Guardado");
   }
@@ -765,6 +1004,164 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && keyOf(today()) !== lastDay) {
     if (keyOf(selected) === lastDay) selected = today();
     lastDay = keyOf(today()); render();
+  }
+});
+
+/* ---------- Folha: trocar / o que comi / escrever ---------- */
+const sheetEl = document.getElementById("sheet"), sheetBg = document.getElementById("sheetBg");
+let sh = null;
+
+function openSheet(target) {
+  const log = getLog(keyOf(selected));
+  const isExtra = target === "extra";
+  const cur = isExtra ? null : mealOf(log, selected, target);
+  sh = {
+    target, isExtra,
+    tab: isExtra ? "eat" : (cur.changed && cur.mode === "eaten" ? "eat" : cur.changed && cur.mode === "edit" ? "write" : "swap"),
+    q: "",
+    items: cur && cur.mode === "eaten" && cur.items ? cur.items.map(x => ({ ...x })) : [],
+    text: cur && cur.changed && cur.mode === "edit" ? cur.text : "",
+    kcal: cur && cur.changed && cur.mode === "edit" && cur.kcal != null ? String(cur.kcal) : "",
+    cn: "", ck: ""
+  };
+  sheetEl.hidden = false; sheetBg.hidden = false;
+  renderSheet();
+  document.body.classList.add("locked");
+  requestAnimationFrame(() => { sheetEl.classList.add("open"); sheetBg.classList.add("open"); });
+}
+function closeSheet() {
+  sheetEl.classList.remove("open"); sheetBg.classList.remove("open");
+  document.body.classList.remove("locked");
+  setTimeout(() => { sheetEl.hidden = true; sheetBg.hidden = true; sheetEl.innerHTML = ""; }, 280);
+  sh = null;
+}
+const itemsTotal = () => sh.items.reduce((a, x) => a + x.k * x.q, 0);
+
+function foodResults() {
+  const q = norm(sh.q.trim());
+  const list = FOODS.map((f, i) => ({ f, i })).filter(({ f }) => !q || q.split(/\s+/).every(w => norm(f[0] + " " + f[3]).includes(w)));
+  if (!list.length) return `<div class="empty">Nada encontrado. Usa "Outro alimento" abaixo.</div>`;
+  let cat = "", html = "";
+  for (const { f, i } of list) {
+    if (f[3] !== cat) { if (cat) html += "</div>"; cat = f[3]; html += `<div class="cat">${cat}</div><div class="card">`; }
+    html += `<div class="row plain"><span class="grow">${esc(f[0])}<div class="kcal">${f[2]} · ${kc(f[1])} kcal</div></span><button class="addbtn" data-addfood="${i}" aria-label="Adicionar ${esc(f[0])}">+</button></div>`;
+  }
+  return html + "</div>";
+}
+function chosenHtml() {
+  if (!sh.items.length) return `<div class="foot" style="margin:0 4px 10px">Procura e toca em + para juntar o que comeste. Ajusta as porções com − e +.</div>`;
+  return `<div class="card" style="margin-bottom:12px">
+    ${sh.items.map((x, j) => `<div class="row plain"><span class="grow">${esc(x.n)}<div class="kcal">${esc(x.p || "porção")} · ≈ ${kc(x.k * x.q)} kcal</div></span>
+      <span class="qty">${fmtQ(x.q)}</span>
+      <span class="stepper"><button data-qty="${j}" data-d="-0.5" aria-label="Menos">−</button><button data-qty="${j}" data-d="0.5" aria-label="Mais">+</button></span></div>`).join("")}
+    <div class="row plain"><b class="grow">Total</b><b>≈ ${kc(itemsTotal())} kcal</b></div>
+  </div>`;
+}
+function renderSheet() {
+  if (!sh) return;
+  const d = selected, wd = isoWd(d) - 1, log = getLog(keyOf(d));
+  const title = sh.isExtra ? "Adicionar extra" : `${MEALS[sh.target].i} ${MEALS[sh.target].n} · ${DAYNAMES[wd].split(" ")[0]}`;
+  const cur = sh.isExtra ? null : mealOf(log, d, sh.target);
+  let body = "";
+  if (!sh.isExtra) {
+    body += `<div class="card pad" style="margin-bottom:10px"><div class="label-sm">${cur.changed ? "Agora" : "Previsto na ementa"}</div><div>${esc(cur.text)}</div>
+      <div class="kcal">${cur.kcal == null ? "kcal por indicar" : "≈ " + kc(cur.kcal) + " kcal"}</div>
+      ${cur.changed ? `<button class="linkbtn" data-sact="reset" style="padding:8px 0 0">↺ Repor a da ementa</button>` : ""}</div>
+      <div class="seg" role="group" aria-label="Como alterar">
+        <button data-stab="swap" aria-pressed="${sh.tab === "swap"}">Trocar</button>
+        <button data-stab="eat" aria-pressed="${sh.tab === "eat"}">O que comi</button>
+        <button data-stab="write" aria-pressed="${sh.tab === "write"}">Escrever</button>
+      </div>`;
+  }
+  if (sh.tab === "swap") {
+    body += `<div class="foot" style="margin:0 4px 8px">Troca pelo ${MEALS[sh.target].n.toLowerCase()} de outro dia da semana:</div><div class="card">` +
+      MENU.map((day, di) => di === wd ? "" : `<button class="row tap plain rowtop" data-swap="${di}">
+        <span class="grow"><div class="label-sm">${DAYNAMES[di]}</div><div>${esc(day[sh.target])}</div><div class="kcal">≈ ${kc(MENU_KCAL[di][sh.target])} kcal</div></span><span class="muted">›</span></button>`).join("") + `</div>`;
+  } else if (sh.tab === "eat") {
+    body += `<div id="chosen">${chosenHtml()}</div>
+      <input class="search" id="foodSearch" type="search" placeholder="Procurar: prato do dia, bitoque, sandes…" value="${esc(sh.q)}" autocomplete="off" enterkeyhint="search">
+      <div class="cat">Outro alimento</div>
+      <div class="card addform">
+        <input id="cName" placeholder="Nome" value="${esc(sh.cn)}" aria-label="Nome do alimento">
+        <input id="cKcal" class="q" placeholder="kcal" inputmode="numeric" value="${esc(sh.ck)}" aria-label="Calorias">
+        <button class="addbtn" data-sact="addcustom" aria-label="Adicionar alimento">+</button>
+      </div>
+      <div id="foodResults">${foodResults()}</div>
+      <div class="savebar"><button class="btn full" data-sact="saveeat" ${sh.items.length ? "" : "disabled"}>${sh.isExtra ? "Adicionar" : "Guardar"}${sh.items.length ? ` · ≈ ${kc(itemsTotal())} kcal` : ""}</button></div>`;
+  } else {
+    body += `<textarea class="field" id="wText" placeholder="Ex.: Prato do dia na cantina — frango grelhado com arroz e salada">${esc(sh.text)}</textarea>
+      <div class="card addform" style="margin-top:10px"><span class="grow">Calorias (opcional)</span><input id="wKcal" class="q" inputmode="numeric" placeholder="kcal" value="${esc(sh.kcal)}" aria-label="Calorias"></div>
+      <div class="foot" style="margin:6px 4px 0">Não sabes as calorias? Usa "O que comi" para as calcular.</div>
+      <div class="savebar"><button class="btn full" data-sact="savewrite">Guardar</button></div>`;
+  }
+  sheetEl.innerHTML = `<div class="sheet-head"><h2 id="sheetTitle">${title}</h2><button class="closebtn" data-sact="close" aria-label="Fechar">✕</button></div><div class="sheet-body">${body}</div>`;
+}
+function refreshEat() {
+  const c = document.getElementById("chosen"); if (c) c.innerHTML = chosenHtml();
+  const b = sheetEl.querySelector('[data-sact="saveeat"]');
+  if (b) { b.disabled = !sh.items.length; b.textContent = (sh.isExtra ? "Adicionar" : "Guardar") + (sh.items.length ? ` · ≈ ${kc(itemsTotal())} kcal` : ""); }
+}
+function applyMeal(custom, markDone) {
+  const k = keyOf(selected), l = getLog(k), c = Object.assign({}, l.custom);
+  if (custom) c[sh.target] = custom; else delete c[sh.target];
+  const patch = { custom: c };
+  if (markDone) { const m = l.meals.slice(); m[sh.target] = true; patch.meals = m; }
+  setLog(k, patch);
+}
+
+sheetBg.addEventListener("click", closeSheet);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && sh) closeSheet(); });
+sheetEl.addEventListener("input", e => {
+  if (!sh) return;
+  const t = e.target;
+  if (t.id === "foodSearch") { sh.q = t.value; document.getElementById("foodResults").innerHTML = foodResults(); }
+  else if (t.id === "wText") sh.text = t.value;
+  else if (t.id === "wKcal") sh.kcal = t.value;
+  else if (t.id === "cName") sh.cn = t.value;
+  else if (t.id === "cKcal") sh.ck = t.value;
+});
+sheetEl.addEventListener("click", e => {
+  if (!sh) return;
+  const t = e.target;
+  const st = t.closest("[data-stab]"); if (st) { sh.tab = st.dataset.stab; renderSheet(); return; }
+  const swp = t.closest("[data-swap]");
+  if (swp) { const di = +swp.dataset.swap; applyMeal({ mode: "swap", text: MENU[di][sh.target], kcal: MENU_KCAL[di][sh.target], fromDay: di }, false); toast(`Trocado pelo de ${DAYNAMES[di].split(" ")[0].toLowerCase()}`); closeSheet(); render(); return; }
+  const af = t.closest("[data-addfood]");
+  if (af) { const f = FOODS[+af.dataset.addfood], ex = sh.items.find(x => x.n === f[0]);
+    if (ex) ex.q += 1; else sh.items.push({ n: f[0], k: f[1], p: f[2], q: 1 });
+    refreshEat(); toast(`${f[0]} adicionado`); return; }
+  const qb = t.closest("[data-qty]");
+  if (qb) { const j = +qb.dataset.qty; sh.items[j].q = Math.max(0, sh.items[j].q + parseFloat(qb.dataset.d)); if (!sh.items[j].q) sh.items.splice(j, 1); refreshEat(); return; }
+  const a = t.closest("[data-sact]"); if (!a) return;
+  switch (a.dataset.sact) {
+    case "close": closeSheet(); break;
+    case "reset": applyMeal(null, false); toast("Reposta a refeição da ementa"); closeSheet(); render(); break;
+    case "addcustom": {
+      const n = sh.cn.trim(), k = parseNum(sh.ck);
+      if (!n || k == null || k < 0) { toast("Indica o nome e as kcal"); return; }
+      sh.items.push({ n, k: Math.round(k), p: "porção", q: 1 }); sh.cn = ""; sh.ck = "";
+      document.getElementById("cName").value = ""; document.getElementById("cKcal").value = "";
+      refreshEat(); break;
+    }
+    case "saveeat": {
+      if (!sh.items.length) return;
+      if (sh.isExtra) {
+        const k = keyOf(selected), l = getLog(k);
+        setLog(k, { extras: (l.extras || []).concat(sh.items.map(x => ({ n: x.n, k: x.k, q: x.q }))) });
+        toast("Extra adicionado");
+      } else {
+        const text = sh.items.map(x => (x.q !== 1 ? fmtQ(x.q) + "× " : "") + x.n).join(" + ");
+        applyMeal({ mode: "eaten", text, kcal: Math.round(itemsTotal()), items: sh.items }, true);
+        toast("Refeição registada");
+      }
+      closeSheet(); render(); break;
+    }
+    case "savewrite": {
+      const text = sh.text.trim(); if (!text) { toast("Escreve o que comeste"); return; }
+      const k = parseNum(sh.kcal);
+      applyMeal({ mode: "edit", text, kcal: k == null ? null : Math.round(k) }, false);
+      toast("Refeição alterada"); closeSheet(); render(); break;
+    }
   }
 });
 

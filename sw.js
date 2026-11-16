@@ -1,5 +1,5 @@
 // Guarda a app para funcionar sem internet.
-const CACHE = "plano-v1";
+const CACHE = "plano-v2";
 const FILES = ["./", "index.html", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png", "lembretes.ics"];
 
 self.addEventListener("install", e => {
