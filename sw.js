@@ -1,6 +1,6 @@
 // Guarda a app para funcionar sem internet.
-const CACHE = "plano-v2";
-const FILES = ["./", "index.html", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png", "lembretes.ics"];
+const CACHE = "plano-v3";
+const FILES = ["./", "index.html", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png", "lembretes.ics", "agua.ics"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

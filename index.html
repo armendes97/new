@@ -31,6 +31,8 @@
   --tab: rgba(249,249,249,.92);
   --switch-off: #e3e3e8;
   --shadow: 0 1px 2px rgba(0,0,0,.04);
+  --water: #1f7fd1;
+  --water-soft: rgba(31,127,209,.13);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -49,13 +51,15 @@
     --tab: rgba(22,22,24,.92);
     --switch-off: #39393d;
     --shadow: none;
+    --water: #4aa8ff;
+    --water-soft: rgba(74,168,255,.18);
   }
 }
 :root[data-theme="dark"] {
   --bg: #000000; --card: #1c1c1e; --text: #f2f2f7; --muted: #98989f; --faint: #48484a;
   --line: rgba(84,84,88,.6); --green: #34c76f; --green-soft: rgba(52,199,111,.18); --accent: #4cc38a;
   --red: #ff5f57; --red-soft: rgba(255,95,87,.16); --amber: #e0a43a; --tab: rgba(22,22,24,.92);
-  --switch-off: #39393d; --shadow: none;
+  --switch-off: #39393d; --shadow: none; --water: #4aa8ff; --water-soft: rgba(74,168,255,.18);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { -webkit-text-size-adjust: 100%; }
@@ -230,6 +234,13 @@ textarea.field { min-height: 90px; resize: vertical; }
 .savebar { position: sticky; bottom: 0; padding: 12px 0 4px; background: linear-gradient(transparent, var(--bg) 30%); }
 .btn.full { width: 100%; padding: 13px; font-size: 17px; }
 .btn:disabled { opacity: .4; }
+.glasses { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+.glass { width: 22px; height: 28px; border: 2px solid var(--water); border-top-width: 0; border-radius: 2px 2px 6px 6px; position: relative; overflow: hidden; }
+.glass.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 80%; background: var(--water); opacity: .85; }
+.glass.half::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 40%; background: var(--water); opacity: .85; }
+.wbar { height: 10px; border-radius: 5px; background: var(--switch-off); overflow: hidden; margin: 10px 0 2px; }
+.wbar > div { height: 100%; background: var(--water); border-radius: 5px; transition: width .3s; }
+.btn.water { background: var(--water-soft); color: var(--water); }
 body.locked { overflow: hidden; }
 </style>
 </head>
@@ -452,7 +463,7 @@ const defaultShopping = () => SHOP.map(([name, qty], i) => ({ id: "s" + i, name,
 const defaultState = () => ({
   logs: {},
   shopping: defaultShopping(),
-  settings: { initial: 93, goal: 85, weekGoal: 22, maxBeers: 4, kcal: 2000, start: keyOf(today()) }
+  settings: { initial: 93, goal: 85, weekGoal: 22, maxBeers: 4, kcal: 2000, water: 2.5, start: keyOf(today()) }
 });
 let state = load();
 
@@ -472,7 +483,7 @@ function save() {
 }
 if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(() => {}); }
 
-const blankLog = () => ({ menu: false, sweets: false, beers: 0, walk: false, weight: null, notes: "", meals: [false, false, false, false, false], custom: {}, extras: [] });
+const blankLog = () => ({ menu: false, sweets: false, beers: 0, walk: false, weight: null, notes: "", meals: [false, false, false, false, false], custom: {}, extras: [], water: 0 });
 const getLog = k => Object.assign(blankLog(), state.logs[k] || {});
 function setLog(k, patch) {
   const old = getLog(k);
@@ -619,6 +630,28 @@ function kcalCard(log, d) {
     <div class="foot">Valores aproximados. As cervejas do contador contam ${BEER_KCAL} kcal cada.</div>`;
 }
 
+const litres = ml => (ml / 1000).toLocaleString("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+function waterCard(log) {
+  const goalMl = Math.round((state.settings.water || 2.5) * 1000), ml = log.water || 0;
+  const n = Math.ceil(goalMl / 250), full = Math.floor(ml / 250), half = ml % 250 >= 125;
+  const done = ml >= goalMl;
+  return `
+    <div class="section-title"><span>Água</span><span>meta ${litres(goalMl)} L</span></div>
+    <div class="card pad">
+      <div class="between" style="align-items:baseline">
+        <span><span class="bigk" style="color:var(--water)">${litres(ml)} L</span> <span class="muted">bebidos</span></span>
+        <span class="muted">${done ? "Meta cumprida 💧" : `faltam ${litres(goalMl - ml)} L`}</span>
+      </div>
+      <div class="glasses" aria-hidden="true">${Array.from({ length: Math.max(n, full) }, (_, i) => `<span class="glass ${i < full ? "on" : i === full && half ? "half" : ""}"></span>`).join("")}</div>
+      <div class="btnrow" style="flex-wrap:nowrap">
+        <button class="btn water" data-water="250" style="flex:1">+ 250 ml</button>
+        <button class="btn water" data-water="500" style="flex:1">+ 500 ml</button>
+        <button class="btn water" data-water="-250" aria-label="Tirar 250 ml" style="width:48px">−</button>
+      </div>
+    </div>
+    <div class="foot">Cada copo desenhado são 250 ml. Bebe um copo antes de cada refeição e um entre cada cerveja.</div>`;
+}
+
 function renderHoje() {
   const d = selected, k = keyOf(d), log = getLog(k), menu = MENU[isoWd(d) - 1];
   const isToday = sameDay(d, today()), future = d > today();
@@ -661,6 +694,8 @@ function renderHoje() {
     <div class="foot">Toca na refeição quando a fizeres. Com ✎ trocas por outro dia, registas o que comeste fora ou reescreves.</div>
 
     ${kcalCard(log, d)}
+
+    ${waterCard(log)}
 
     <div class="section-title"><span>Pontos do dia</span>${dots(pts)}</div>
     <div class="card">
@@ -776,6 +811,7 @@ function renderProgresso() {
       ${days.length ? days.map(k => { const d = parseKey(k), l = getLog(k);
         return `<button class="row tap plain" data-goto="${k}">
           <div class="grow"><div>${fmtLong(d)}</div>${l.notes ? `<div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.notes)}</div>` : ""}</div>
+          ${l.water ? `<span class="small" style="color:var(--water)">💧${litres(l.water)}</span>` : ""}
           ${l.weight != null ? `<span class="small muted">${kg(l.weight)} kg</span>` : ""}
           ${d > today() ? "" : dots(points(l, d))}
           <span class="muted">›</span>
@@ -861,15 +897,17 @@ function renderMais() {
       <div class="row plain"><span class="grow">Meta</span><input class="num-in" data-set="goal" inputmode="decimal" value="${kg(s.goal)}"><span class="muted">kg</span></div>
       <div class="row plain"><span class="grow">Meta semanal de pontos</span><input class="num-in" data-set="weekGoal" inputmode="numeric" value="${s.weekGoal}"><span class="muted">/ 28</span></div>
       <div class="row plain"><span class="grow">Meta diária de calorias</span><input class="num-in" data-set="kcal" inputmode="numeric" value="${s.kcal || 2000}"><span class="muted">kcal</span></div>
+      <div class="row plain"><span class="grow">Meta diária de água</span><input class="num-in" data-set="water" inputmode="decimal" value="${kg(s.water || 2.5)}"><span class="muted">L</span></div>
       <div class="row plain"><span class="grow">Máx. cervejas por semana</span><input class="num-in" data-set="maxBeers" inputmode="numeric" value="${s.maxBeers}"></div>
       <div class="row plain"><span class="grow">Início do plano</span><input type="date" data-set="start" value="${s.start}" style="border:0;background:none;text-align:right;color:var(--accent)"></div>
     </div>
 
     <div class="section-title"><span>Lembretes</span></div>
     <div class="card actions">
-      <a class="row plain" href="lembretes.ics" style="text-decoration:none;color:var(--accent)">🔔&nbsp; Adicionar lembretes ao Calendário</a>
+      <a class="row plain" href="lembretes.ics" style="text-decoration:none;color:var(--accent)">🔔&nbsp; Lembretes do plano</a>
+      <a class="row plain" href="agua.ics" style="text-decoration:none;color:var(--water)">💧&nbsp; Lembretes para beber água</a>
     </div>
-    <div class="foot">Junta ao Calendário do iPhone, com alerta: registo todas as noites às 22h, caminhada às 18h, pesagem à segunda às 8h e preparação das marmitas ao domingo às 11h. Podes mudar as horas no Calendário.</div>
+    <div class="foot">Juntam-se ao Calendário do iPhone, com alerta. Plano: registo às 22h, caminhada às 18h, pesagem à segunda às 8h e marmitas ao domingo às 11h. Água: todos os dias às 9h, 11h, 13h, 15h, 17h e 19h. Podes mudar as horas ou apagar no Calendário.</div>
 
     <div class="section-title"><span>Dados</span></div>
     <div class="card actions">
@@ -894,10 +932,10 @@ async function shareFile(name, text, type) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 function csv() {
-  const rows = [["Data", "Cumpri a ementa", "Doces só os planeados", "Cervejas", "Caminhei 30 min", "Pontos", "Peso (kg)", "Calorias (kcal)", "Refeições alteradas", "Notas"]];
+  const rows = [["Data", "Cumpri a ementa", "Doces só os planeados", "Cervejas", "Caminhei 30 min", "Pontos", "Peso (kg)", "Calorias (kcal)", "Água (L)", "Refeições alteradas", "Notas"]];
   Object.keys(state.logs).sort().forEach(k => {
     const l = getLog(k), d = parseKey(k);
-    rows.push([k, l.menu ? "Sim" : "Não", l.sweets ? "Sim" : "Não", l.beers, l.walk ? "Sim" : "Não", points(l, d), l.weight == null ? "" : kg(l.weight), Math.round(dayKcal(l, d).eaten),
+    rows.push([k, l.menu ? "Sim" : "Não", l.sweets ? "Sim" : "Não", l.beers, l.walk ? "Sim" : "Não", points(l, d), l.weight == null ? "" : kg(l.weight), Math.round(dayKcal(l, d).eaten), litres(l.water || 0),
       Object.entries(l.custom || {}).map(([i, c]) => `${MEALS[i].n}: ${c.text}`).join(" | ").replace(/[;\n\r]/g, " "),
       (l.notes || "").replace(/[;\n\r]/g, " ")]);
   });
@@ -922,6 +960,9 @@ view.addEventListener("click", async e => {
   if (shop) { const it = state.shopping.find(x => x.id === shop.dataset.shop); if (it) { it.bought = !it.bought; save(); render(); } return; }
   const del = t.closest("[data-delshop]");
   if (del) { const it = state.shopping.find(x => x.id === del.dataset.delshop); if (it && confirm(`Apagar "${it.name}" da lista?`)) { state.shopping = state.shopping.filter(x => x !== it); save(); render(); } return; }
+  const wb = t.closest("[data-water]");
+  if (wb) { const k = keyOf(selected), ml = Math.max(0, (getLog(k).water || 0) + +wb.dataset.water); setLog(k, { water: ml });
+    const g = (state.settings.water || 2.5) * 1000; render(); if (+wb.dataset.water > 0 && ml >= g && ml - +wb.dataset.water < g) toast("Meta de água cumprida 💧"); return; }
   const em = t.closest("[data-editmeal]");
   if (em) { openSheet(+em.dataset.editmeal); return; }
   const dx = t.closest("[data-delextra]");
@@ -968,7 +1009,7 @@ view.addEventListener("change", e => {
     else {
       const v = parseNum(t.value);
       if (v == null || v <= 0) { toast("Valor inválido"); render(); return; }
-      s[f] = f === "kcal" ? Math.round(Math.min(6000, Math.max(800, v))) : (f === "weekGoal" || f === "maxBeers") ? Math.round(Math.min(f === "weekGoal" ? 28 : 50, v)) : Math.round(v * 10) / 10;
+      s[f] = f === "water" ? Math.round(Math.min(6, Math.max(0.5, v)) * 10) / 10 : f === "kcal" ? Math.round(Math.min(6000, Math.max(800, v))) : (f === "weekGoal" || f === "maxBeers") ? Math.round(Math.min(f === "weekGoal" ? 28 : 50, v)) : Math.round(v * 10) / 10;
     }
     save(); render(); toast("Guardado");
   }
